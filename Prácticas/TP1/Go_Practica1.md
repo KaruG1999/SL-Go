@@ -368,144 +368,301 @@ func main() {
 
 ---
 
-## Ejercicicio Obligatorio 1 — Reemplazar "jueves" por "martes"
+## Ejercicio 9 — Reemplazar "jueves" por "martes"
 
-**¿De qué concepto sale?** → Manipulación de strings, package `strings`, respeto de casing
+**¿De qué concepto sale?** → Manipulación de strings, packages `strings` y `unicode`, respeto de casing
 
 ```go
 package main
 
 import (
-    "fmt"
-    "strings"
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+	"unicode"
 )
 
+// reemplazarConCasing busca todas las ocurrencias de `original` dentro de
+// `frase` de forma case-insensitive y las reemplaza por `reemplazo`,
+// copiando el patrón de mayúsculas/minúsculas de la ocurrencia encontrada
+// posición a posición.
+//
+// Se trabaja con []rune (y no con bytes) porque en Go un string es una
+// secuencia de bytes UTF-8; caracteres como é, ñ, ó ocupan 2 bytes, por lo
+// que iterar con índice de bytes daría posiciones incorrectas.
+// Al convertir a []rune cada elemento representa un carácter completo.
+//
+// En este ejercicio ambas palabras son ASCII puro ("jueves"/"martes"),
+// así que rune y byte coinciden; pero se usa []rune desde ya para que la
+// función sea reutilizable con palabras acentuadas (ver Obligatorio 1).
 func reemplazarConCasing(frase, original, reemplazo string) string {
-    originalLower := strings.ToLower(original)
-    var resultado strings.Builder
-    fraseLower := strings.ToLower(frase)
-    i := 0
+	fraseRunes := []rune(frase)
+	origRunes := []rune(strings.ToLower(original))
+	reemplRunes := []rune(strings.ToLower(reemplazo))
+	n := len(origRunes)
 
-    for i < len(frase) {
-        if strings.HasPrefix(fraseLower[i:], originalLower) {
-            // aplicar casing de la ocurrencia original al reemplazo
-            for j, c := range reemplazo {
-                if j < len(original) {
-                    orig := rune(frase[i+j])
-                    if orig >= 'A' && orig <= 'Z' {
-                        resultado.WriteRune(c - 32) // mayúscula
-                    } else {
-                        resultado.WriteRune(c)
-                    }
-                } else {
-                    resultado.WriteRune(c)
-                }
-            }
-            i += len(original)
-        } else {
-            resultado.WriteByte(frase[i])
-            i++
-        }
-    }
-    return resultado.String()
+	var sb strings.Builder // Builder acumula el resultado sin alocar un string nuevo en cada paso
+
+	i := 0
+	for i < len(fraseRunes) {
+		// ¿Hay suficientes caracteres por delante para que quepa `original`?
+		if i+n <= len(fraseRunes) {
+			// Comparamos el segmento en minúsculas con la palabra buscada.
+			segmento := strings.ToLower(string(fraseRunes[i : i+n]))
+			if segmento == string(origRunes) {
+				// Ocurrencia encontrada: escribir `reemplazo` con el casing
+				// de cada posición de la ocurrencia original.
+				for j, r := range reemplRunes {
+					if unicode.IsUpper(fraseRunes[i+j]) {
+						sb.WriteRune(unicode.ToUpper(r))
+					} else {
+						sb.WriteRune(r)
+					}
+				}
+				i += n
+				continue
+			}
+		}
+		// Carácter normal: copiarlo tal cual.
+		sb.WriteRune(fraseRunes[i])
+		i++
+	}
+	return sb.String()
 }
 
 func main() {
-    var frase string
-    fmt.Println("Ingresá la frase:")
-    fmt.Scanln(&frase)
+	// bufio.Scanner lee la línea completa (incluyendo espacios).
+	// fmt.Scan solo lee hasta el primer espacio, lo que partiría la frase.
+	fmt.Print("Ingrese una frase: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	frase := scanner.Text()
 
-    resultado := reemplazarConCasing(frase, "jueves", "martes")
-    fmt.Println(resultado)
+	fmt.Println(reemplazarConCasing(frase, "jueves", "martes"))
 }
 ```
 
-**Por qué:** La clave es recorrer el string buscando la palabra en minúsculas (para detectarla sin importar el casing), y luego copiar el casing posición a posición al reemplazo. `strings.Builder` es eficiente para construir strings carácter por carácter.
+**Puntos clave:**
+- `[]rune`: convierte el string a un slice de puntos de código Unicode. Cada elemento es un carácter completo, sin importar cuántos bytes ocupe. Necesario para no corromper caracteres acentuados al indexar.
+- `strings.ToLower`: normaliza a minúsculas solo para comparar; el string original se preserva intacto para copiar el casing.
+- `strings.Builder`: acumula el string de salida de forma eficiente, sin crear un string nuevo por cada carácter concatenado.
+- `unicode.IsUpper` / `unicode.ToUpper` / `unicode.ToLower`: funciones del package `unicode` que funcionan con cualquier carácter del estándar Unicode, no solo el alfabeto ASCII.
 
 ---
 
-## Ejercicio Obligatorio 2 — Reemplazar "miércoles" por "automóvil"
+## Ejercicio Obligatorio 1 — Reemplazar "miércoles" por "automóvil"
 
-**¿De qué concepto sale?** → Mismo patrón que Obligatorio 1, pero con strings Unicode (tildes)
-
-**Resolución:** Mismo código que el ejercicio anterior, cambiando los argumentos:
+**¿De qué concepto sale?** → Mismo patrón que el Ejercicio 9 aplicado a palabras con caracteres Unicode (tildes)
 
 ```go
-resultado := reemplazarConCasing(frase, "miércoles", "automóvil")
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+	"unicode"
+)
+
+// reemplazarConCasing es la misma función del Ejercicio 9, reutilizable
+// para cualquier par de palabras.
+//
+// Impacto de pasar de "jueves"/"martes" a "miércoles"/"automóvil":
+//   - Ambas palabras tienen 9 runes ("miércoles": m-i-é-r-c-o-l-e-s,
+//     "automóvil": a-u-t-o-m-ó-v-i-l), así que el reemplazo posición
+//     a posición sigue siendo válido.
+//   - La diferencia es que ahora los strings tienen bytes extra por las
+//     tildes (é = 2 bytes, ó = 2 bytes). Si usáramos índice de bytes,
+//     len("miércoles") == 11 (bytes) pero tiene 9 caracteres reales.
+//     Por eso es imprescindible trabajar con []rune.
+func reemplazarConCasing(frase, original, reemplazo string) string {
+	fraseRunes := []rune(frase)
+	origRunes := []rune(strings.ToLower(original))
+	reemplRunes := []rune(strings.ToLower(reemplazo))
+	n := len(origRunes)
+
+	var sb strings.Builder
+
+	i := 0
+	for i < len(fraseRunes) {
+		if i+n <= len(fraseRunes) {
+			segmento := strings.ToLower(string(fraseRunes[i : i+n]))
+			if segmento == string(origRunes) {
+				for j, r := range reemplRunes {
+					if unicode.IsUpper(fraseRunes[i+j]) {
+						sb.WriteRune(unicode.ToUpper(r))
+					} else {
+						sb.WriteRune(r)
+					}
+				}
+				i += n
+				continue
+			}
+		}
+		sb.WriteRune(fraseRunes[i])
+		i++
+	}
+	return sb.String()
+}
+
+func main() {
+	fmt.Print("Ingrese una frase: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	frase := scanner.Text()
+
+	fmt.Println(reemplazarConCasing(frase, "miércoles", "automóvil"))
+}
 ```
 
-**Impacto de usar palabras con tildes:** El problema es que en Go los strings son `[]byte` (UTF-8), y las tildes ocupan más de 1 byte. El índice `i` avanza en bytes, no en caracteres. Hay que trabajar con `[]rune` para manejar correctamente Unicode:
+**Impacto de usar palabras con tildes:**
+
+| | "jueves" / "martes" | "miércoles" / "automóvil" |
+|---|---|---|
+| `len(palabra)` en bytes | 6 / 6 | 11 / 10 |
+| `len([]rune(palabra))` | 6 / 6 | 9 / 9 |
+| ¿Funciona con índice de bytes? | Sí (todo ASCII) | No (é, ó ocupan 2 bytes) |
+| ¿Funciona con `[]rune`? | Sí | Sí |
+
+La función no necesitó modificarse: al estar escrita con `[]rune` desde el principio, absorbe el cambio sin errores.
+
+---
+
+## Ejercicio Obligatorio 2 — Invertir palabras en posiciones impares
+
+**¿De qué concepto sale?** → `strings.Fields`, `strings.Join`, `[]rune`, algoritmo de inversión in-place
 
 ```go
-fraseRunes := []rune(frase)
-originalRunes := []rune(strings.ToLower(original))
-reemplazoRunes := []rune(reemplazo)
-// iterar sobre fraseRunes con índice de runes
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+)
+
+// invertirPalabra devuelve la palabra con sus caracteres en orden inverso.
+// Usa []rune para que caracteres Unicode multi-byte (é, ñ, etc.) se
+// inviertan como una unidad y no byte a byte (lo que produciría UTF-8 inválido).
+func invertirPalabra(s string) string {
+	runes := []rune(s)
+	// Intercambio desde los extremos hacia el centro (algoritmo in-place).
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
+func main() {
+	fmt.Print("Ingrese una frase: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	frase := scanner.Text()
+
+	// strings.Fields divide la frase por cualquier secuencia de espacios en
+	// blanco y devuelve un slice de strings con cada palabra.
+	palabras := strings.Fields(frase)
+
+	for i := range palabras {
+		// Las posiciones se cuentan desde 1, por eso chequeamos (i+1)%2 == 1.
+		// Posiciones impares: 1, 3, 5, … → índices 0, 2, 4, …
+		if (i+1)%2 == 1 {
+			palabras[i] = invertirPalabra(palabras[i])
+		}
+	}
+
+	// strings.Join vuelve a unir el slice con un espacio entre cada elemento.
+	fmt.Println(strings.Join(palabras, " "))
+}
 ```
 
-**Por qué:** Con ASCII puro (Ej. 1) `len(string)` == cantidad de caracteres. Con Unicode (Ej. 2) `len(string)` == cantidad de bytes, que puede ser mayor. Usar `[]rune` convierte el string a slice de puntos de código Unicode, donde cada elemento es un carácter real.
+**Puntos clave:**
+- `strings.Fields(s)`: divide `s` por espacios (uno o varios) y devuelve `[]string`. Equivalente a `split` en otros lenguajes.
+- `strings.Join(slice, sep)`: une un `[]string` insertando `sep` entre cada elemento.
+- Algoritmo de inversión in-place: dos punteros `i` (inicio) y `j` (fin) se acercan intercambiando posiciones hasta cruzarse. No necesita array auxiliar.
+- La puntuación pegada a la palabra (como el `.` en `hoy.`) se invierte junto con ella: `hoy.` → `.yoh`. Es el comportamiento esperado para una inversión de caracteres estricta.
 
 ---
 
 ## Ejercicio Obligatorio 3 — Invertir mayúsculas/minúsculas de ocurrencias
 
-**¿De qué concepto sale?** → Búsqueda case-insensitive + inversión de casing por carácter
+**¿De qué concepto sale?** → Búsqueda case-insensitive con `[]rune`, inversión de casing con package `unicode`
 
 ```go
 package main
 
 import (
-    "fmt"
-    "strings"
-    "unicode"
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+	"unicode"
 )
 
-func invertirCasing(s string) string {
-    var resultado strings.Builder
-    for _, c := range s {
-        if unicode.IsUpper(c) {
-            resultado.WriteRune(unicode.ToLower(c))
-        } else {
-            resultado.WriteRune(unicode.ToUpper(c))
-        }
-    }
-    return resultado.String()
+// invertirCasing recibe un slice de runes y devuelve un string donde cada
+// mayúscula se convirtió en minúscula y cada minúscula en mayúscula.
+// Usa el package unicode para que funcione con Ñ, É, Ó, etc.
+func invertirCasing(runes []rune) string {
+	var sb strings.Builder
+	for _, c := range runes {
+		if unicode.IsUpper(c) {
+			sb.WriteRune(unicode.ToLower(c))
+		} else {
+			sb.WriteRune(unicode.ToUpper(c))
+		}
+	}
+	return sb.String()
 }
 
 func main() {
-    var palabra string
-    fmt.Println("Ingresá la palabra a buscar:")
-    fmt.Scan(&palabra)
-    fmt.Println("Ingresá la frase:")
-    var frase string
-    fmt.Scan(&frase)
+	// Leemos la palabra a buscar con fmt.Scan (lee hasta el primer espacio).
+	var palabra string
+	fmt.Print("Ingrese la palabra a buscar: ")
+	fmt.Scan(&palabra)
 
-    palabraLower := strings.ToLower(palabra)
-    palabraRunes := []rune(palabraLower)
-    fraseRunes := []rune(frase)
-    var resultado strings.Builder
-    i := 0
+	// Leemos la frase completa con bufio.Scanner para capturar los espacios.
+	fmt.Print("Ingrese una frase: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	frase := scanner.Text()
 
-    for i < len(fraseRunes) {
-        // verificar si hay match case-insensitive en posición i
-        fin := i + len(palabraRunes)
-        if fin <= len(fraseRunes) {
-            segmento := strings.ToLower(string(fraseRunes[i:fin]))
-            if segmento == palabraLower {
-                resultado.WriteString(invertirCasing(string(fraseRunes[i:fin])))
-                i = fin
-                continue
-            }
-        }
-        resultado.WriteRune(fraseRunes[i])
-        i++
-    }
+	// Convertimos ambos a []rune para trabajar carácter a carácter con Unicode.
+	fraseRunes := []rune(frase)
+	// Guardamos la palabra en minúsculas para comparar sin importar el casing.
+	palabraLower := strings.ToLower(palabra)
+	palabraRunes := []rune(palabraLower)
+	n := len(palabraRunes)
 
-    fmt.Println(resultado.String())
+	var sb strings.Builder
+	i := 0
+
+	for i < len(fraseRunes) {
+		// Si quedan al menos n caracteres, comparamos el segmento con la palabra.
+		if i+n <= len(fraseRunes) {
+			segmento := strings.ToLower(string(fraseRunes[i : i+n]))
+			if segmento == palabraLower {
+				// Ocurrencia encontrada: escribimos el segmento con casing invertido.
+				sb.WriteString(invertirCasing(fraseRunes[i : i+n]))
+				i += n
+				continue
+			}
+		}
+		// No hay ocurrencia en esta posición: copiamos el carácter tal cual.
+		sb.WriteRune(fraseRunes[i])
+		i++
+	}
+
+	fmt.Println(sb.String())
 }
 ```
 
-**Por qué:** La búsqueda se hace en minúsculas para ser case-insensitive. Cuando hay match, se toma el segmento **original** de la frase (con su casing real) y se invierte carácter por carácter con `unicode.IsUpper`/`ToLower`/`ToUpper`. Trabajar con `[]rune` es necesario para soportar caracteres como `Ñ`, `É`, etc.
+**Puntos clave:**
+- La estructura del `for` es idéntica al Ejercicio 9: avanzar por `fraseRunes`, comparar segmento en minúsculas, actuar si hay match. La única diferencia es qué se hace cuando hay match: en ej9 se copia el casing, acá se invierte.
+- `invertirCasing`: recorre el segmento original (con su casing real) y para cada carácter aplica la lógica opuesta con `unicode.IsUpper`.
+- La búsqueda es de subcadena, no de palabra completa: encuentra `peqUEño` dentro de `peqUEño,` aunque tenga la coma — invierte solo los caracteres de la palabra y deja la coma intacta.
 
 ---
 
