@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	
 	fmt.Print("Ingrese una secuencia de caracteres: ")
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()

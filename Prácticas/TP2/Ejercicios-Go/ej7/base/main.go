@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"os"
 	"unicode"
-
-	
 )
-
 
 func main () {
 	fmt.Println("Ingrese una secuencia de caracteres (Finalizar con Enter): ")
@@ -19,7 +16,6 @@ func main () {
 
 	// Contadores de distintos caracteres
 	var letras, numeros, especiales int
-
 
 	// Recorremos el text letra por letra
 	for _,caracter := range texto {
@@ -37,5 +33,4 @@ func main () {
 	}
 
 	fmt.Printf(" Letras: %d, Números: %d, Caracteres: %d", letras, numeros, especiales)
-
 }
