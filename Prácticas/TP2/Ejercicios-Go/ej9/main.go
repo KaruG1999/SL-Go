@@ -42,7 +42,7 @@ func Next (l List) List {
 	}
 }
 
-func toString (l List) string {
+func ToString (l List) string {
 	res := ""
 	// Para no modificar lista original
 	actual := l.pri
@@ -53,22 +53,23 @@ func toString (l List) string {
 	return res
 }
 
-func PushFront(l *List, elem int){
+// Pasado a método para unificar interfaz (creo el nodo y lo asigno al primer elemento de la lista)
+func (l *List) PushFront(elem int) {
 	nuevo := &nodo{elem: elem, sig: l.pri}
 	l.pri = nuevo
-	l.len++ 
+	l.len++
 }
 
 // Otra forma de escribirlo
-func PushBack(l *List, element int) {
+func (l *List) PushBack( element int) {
     if IsEmpty(*l) {
         // 'l' ya es un puntero (*List). Se lo pasás tal cual.
-        PushFront(l, element) 
+        l.PushFront(element)
         return 
     }
 
     nuevo := &nodo{elem: element, sig: nil} // -> nuevo es el último
-    actual := l.pri // -> actual es el primero y recorro hasta el último
+    actual := l.pri // -> actual es el primero y recorro hasta el último (de esta forma no pierdo el puntero)
     for actual.sig != nil {
         actual = actual.sig
     }
@@ -77,7 +78,7 @@ func PushBack(l *List, element int) {
 }
 
 func (l *List) Remove() (int, error) {
-	// si está vacía, salimos con error inmediatamente
+	// si está vacía, salimos con error 
 	if l.pri == nil {
 		return 0, errors.New("Lista vacia")
 	}
@@ -99,10 +100,30 @@ func (l *List) Iterate(f func(int) int) {
 	
 	// Recorremos la memoria dinámica hasta el final
 	for actual != nil {
-		
-		
-		
+		actual.elem = f(actual.elem)
 		// Avanzamos al siguiente nodo
 		actual = actual.sig
 	}
+
 }
+
+func main() {
+
+	l:= New()
+	l.PushBack(2)
+	l.PushBack(3)
+	l.PushFront(1)
+
+	fmt.Printf("Lista: %s\n", ToString(l))
+
+	l.Iterate(func(n int) int{
+		return n-5
+	})
+
+	fmt.Printf("Lista iterada: %s\n", ToString(l))
+}
+
+
+
+
+
