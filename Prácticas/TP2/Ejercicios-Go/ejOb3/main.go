@@ -17,12 +17,12 @@ func New(s []int) OptimumSlice {
 	}
 	// {{s[0], 1}}: slice literal con un run inicial
 	result := OptimumSlice{{s[0], 1}}
-	for _, v := range s[1:] { // s[1:] = desde el segundo elemento hasta el final
-		last := &result[len(result)-1] // puntero al último run para poder modificarlo
-		if v == last.valor {
-			last.ocurrencias++
+	for _, elem := range s[1:] { // s[1:] = desde el segundo elemento hasta el final
+		ultima := &result[len(result)-1] // puntero al último run para poder modificarlo
+		if elem == ultima.valor {
+			ultima.ocurrencias++
 		} else {
-			result = append(result, run{v, 1})
+			result = append(result, run{elem, 1})
 		}
 	}
 	return result
@@ -67,12 +67,12 @@ func Occurrences(o OptimumSlice, element int) int {
 }
 
 func IndexOf(o OptimumSlice, element int) int {
-	pos := 0
+	posicion := 0
 	for _, r := range o {
 		if r.valor == element {
-			return pos
+			return posicion
 		}
-		pos += r.ocurrencias
+		posicion += r.ocurrencias
 	}
 	return -1
 }
@@ -83,53 +83,72 @@ func Mode(o OptimumSlice) int {
 	for _, r := range o {
 		conteo[r.valor] += r.ocurrencias
 	}
-	bestVal, bestCant := 0, 0
-	for val, cant := range conteo {
-		if cant > bestCant {
-			bestCant = cant
-			bestVal = val
+	valorModa, maxOcurrencias := 0, 0
+	for valor, cant := range conteo {
+		if cant > maxOcurrencias {
+			maxOcurrencias = cant
+			valorModa = valor
 		}
 	}
-	return bestVal
+	return valorModa
+}
+
+// copia el slice sin mutar el original
+func copiar(o OptimumSlice) OptimumSlice {
+	copia := make(OptimumSlice, len(o))
+	copy(copia, o)
+	return copia
 }
 
 func Insert(o OptimumSlice, element int, position int) OptimumSlice {
-	posAcum := 0
+	posicion := 0
 
 	for i, r := range o {
-		if posAcum+r.ocurrencias > position {
-			offset := position - posAcum
+		if posicion+r.ocurrencias > position {
+			elementosAntes := position - posicion // cuántos elementos de esta racha van antes del nuevo
 
+			// mismo valor que la racha actual → solo incrementar
 			if element == r.valor {
-				o[i].ocurrencias++
-				return o
+				resultado := copiar(o)
+				resultado[i].ocurrencias++
+				return resultado
 			}
 
-			antes   := run{r.valor, offset}
+			// inserción en el límite y coincide con la racha anterior → fusionar
+			if elementosAntes == 0 && i > 0 && element == o[i-1].valor {
+				resultado := copiar(o)
+				resultado[i-1].ocurrencias++
+				return resultado
+			}
+
+			// caso general: partir la racha en tres partes
+			antes   := run{r.valor, elementosAntes}
 			nuevo   := run{element, 1}
-			despues := run{r.valor, r.ocurrencias - offset}
+			despues := run{r.valor, r.ocurrencias - elementosAntes}
 
 			// make(tipo, len, cap): slice vacío con capacidad pre-asignada
-			result := make(OptimumSlice, 0, len(o)+2)
-			result = append(result, o[:i]...)   // o[:i]...: expande el sub-slice como argumentos
+			resultado := make(OptimumSlice, 0, len(o)+2)
+			resultado = append(resultado, o[:i]...)   // o[:i]...: expande el sub-slice como argumentos
 			if antes.ocurrencias > 0 {
-				result = append(result, antes)
+				resultado = append(resultado, antes)
 			}
-			result = append(result, nuevo)
+			resultado = append(resultado, nuevo)
 			if despues.ocurrencias > 0 {
-				result = append(result, despues)
+				resultado = append(resultado, despues)
 			}
-			result = append(result, o[i+1:]...) // o[i+1:]: desde el run siguiente al final
-			return result
+			resultado = append(resultado, o[i+1:]...) // o[i+1:]: desde el run siguiente al final
+			return resultado
 		}
-		posAcum += r.ocurrencias
+		posicion += r.ocurrencias
 	}
 
-	if !IsEmpty(o) && o[len(o)-1].valor == element {
-		o[len(o)-1].ocurrencias++
-		return o
+	// insertar al final
+	resultado := copiar(o)
+	if !IsEmpty(resultado) && resultado[len(resultado)-1].valor == element {
+		resultado[len(resultado)-1].ocurrencias++
+		return resultado
 	}
-	return append(o, run{element, 1})
+	return append(resultado, run{element, 1})
 }
 
 func SliceArray(o OptimumSlice) []int {
@@ -144,31 +163,30 @@ func SliceArray(o OptimumSlice) []int {
 }
 
 func main() {
-	s := []int{3, 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 23, 23, 23, 23, 23, 23, 3, 3, 3, 3, 3, 3, 3, 3, 7, 5, 5, 5}
-	o := New(s)
+	base := []int{3, 3, 3, 1, 1, 5, 5, 5}
+	o := New(base)
+	fmt.Printf("Base: %v\n\n", []run(o))
 
-	fmt.Printf("Runs:           %v\n", []run(o)) // []run(o): convierte OptimumSlice a []run para imprimir
-	fmt.Printf("Len:            %d\n", Len(o))
-	fmt.Printf("FrontElement:   %d\n", FrontElement(o))
-	fmt.Printf("LastElement:    %d\n", LastElement(o))
-	fmt.Printf("Average:        %.2f\n", Average(o))
-	fmt.Printf("Occurrences(3): %d\n", Occurrences(o, 3))
-	fmt.Printf("IndexOf(23):    %d\n", IndexOf(o, 23))
-	fmt.Printf("Mode:           %d\n", Mode(o))
+	// caso 1: insert al inicio (posición 0, valor diferente)
+	r1 := Insert(o, 9, 0)
+	fmt.Printf("Insert(9, 0) — al inicio:\n  %v\n", []run(r1))
 
-	fmt.Println("\n--- Insert(o, 9, 6) ---")
-	o2 := Insert(o, 9, 6)
-	fmt.Printf("Runs:  %v\n", []run(o2))
-	fmt.Printf("Array: %v\n", SliceArray(o2))
+	// caso 2: insert al final
+	r2 := Insert(o, 9, 9999)
+	fmt.Printf("Insert(9, final):\n  %v\n", []run(r2))
 
-	fmt.Println("\n--- Insert mismo valor ---")
-	o3 := Insert(o, 3, 2)
-	fmt.Printf("Runs: %v\n", []run(o3))
+	// caso 3: insert en medio rompiendo un bloque
+	// base: [{3,3},{1,2},{5,3}] → insertar 9 en posición 1 (dentro del run {3,3})
+	r3 := Insert(o, 9, 1)
+	fmt.Printf("Insert(9, 1) — rompe bloque {3,3}:\n  %v\n", []run(r3))
 
-	fmt.Println("\n--- Insert al final ---")
-	o4 := Insert(o, 99, 9999)
-	fmt.Printf("Último run: %v\n", o4[len(o4)-1])
+	// caso 4: fusión con bloque vecino
+	// base: [{3,3},{1,2},{5,3}] → insertar 3 en posición 3 (límite entre {3,3} y {1,2})
+	// sin fusión quedaría [{3,3},{3,1},{1,2},{5,3}] ← inválido
+	// con fusión debe quedar [{3,4},{1,2},{5,3}]
+	r4 := Insert(o, 3, 3)
+	fmt.Printf("Insert(3, 3) — fusión con bloque anterior:\n  %v\n", []run(r4))
 
-	fmt.Printf("\n¿o vacío?:       %v\n", IsEmpty(o))
-	fmt.Printf("¿New([]) vacío?: %v\n", IsEmpty(New([]int{})))
+	// verificar que o no fue mutado
+	fmt.Printf("\nOriginal sin mutar: %v\n", []run(o))
 }
