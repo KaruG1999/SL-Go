@@ -2,29 +2,33 @@ package main
 
 import "fmt"
 
-// [3,3,3,1,1] se guarda como [{3,3},{1,2}]
-type run struct {
-	valor       int
-	ocurrencias int
+type nodo struct {
+	valor int
+	cant  int
 }
 
-// tipo basado en []run
-type OptimumSlice []run
+type OptimumSlice []nodo
 
 func New(s []int) OptimumSlice {
 	if len(s) == 0 {
 		return OptimumSlice{}
 	}
-	// {{s[0], 1}}: slice literal con un run inicial
-	result := OptimumSlice{{s[0], 1}}
-	for _, elem := range s[1:] { // s[1:] = desde el segundo elemento hasta el final
-		ultima := &result[len(result)-1] // puntero al último run para poder modificarlo
-		if elem == ultima.valor {
-			ultima.ocurrencias++
+
+	var result OptimumSlice
+	elem := s[0]
+	cant := 1
+
+	for i := 1; i < len(s); i++ {
+		if s[i] == elem {
+			cant++
 		} else {
-			result = append(result, run{elem, 1})
+			result = append(result, nodo{elem, cant})
+			elem = s[i]
+			cant = 1
 		}
 	}
+
+	result = append(result, nodo{elem, cant})
 	return result
 }
 
@@ -34,8 +38,8 @@ func IsEmpty(o OptimumSlice) bool {
 
 func Len(o OptimumSlice) int {
 	total := 0
-	for _, r := range o {
-		total += r.ocurrencias
+	for _, n := range o {
+		total += n.cant
 	}
 	return total
 }
@@ -49,114 +53,117 @@ func LastElement(o OptimumSlice) int {
 }
 
 func Average(o OptimumSlice) float64 {
-	var suma float64
+	total := 0
+	cant := 0
 	for _, r := range o {
-		suma += float64(r.valor) * float64(r.ocurrencias)
+		total += r.valor * r.cant
+		cant += r.cant
 	}
-	return suma / float64(Len(o))
+	if cant == 0 {
+		return 0
+	}
+	return float64(total) / float64(cant)
 }
 
 func Occurrences(o OptimumSlice, element int) int {
 	total := 0
 	for _, r := range o {
 		if r.valor == element {
-			total += r.ocurrencias
+			total += r.cant
 		}
 	}
 	return total
 }
 
 func IndexOf(o OptimumSlice, element int) int {
-	posicion := 0
-	for _, r := range o {
-		if r.valor == element {
-			return posicion
+	pos := 0
+	for _, n := range o {
+		if n.valor == element {
+			return pos
 		}
-		posicion += r.ocurrencias
+		pos += n.cant
 	}
 	return -1
 }
 
 func Mode(o OptimumSlice) int {
-	// make(map[K]V): crea un mapa vacío
-	conteo := make(map[int]int)
-	for _, r := range o {
-		conteo[r.valor] += r.ocurrencias
-	}
-	valorModa, maxOcurrencias := 0, 0
-	for valor, cant := range conteo {
-		if cant > maxOcurrencias {
-			maxOcurrencias = cant
-			valorModa = valor
+	max := 0
+	mode := 0
+	for _, n := range o {
+		cant := Occurrences(o, n.valor)
+		if cant > max {
+			max = cant
+			mode = n.valor
 		}
 	}
-	return valorModa
+	return mode
 }
 
-// copia el slice sin mutar el original
 func copiar(o OptimumSlice) OptimumSlice {
 	copia := make(OptimumSlice, len(o))
 	copy(copia, o)
 	return copia
 }
 
+func appendMerge(o OptimumSlice, r nodo) OptimumSlice {
+	if r.cant <= 0 {
+		return o
+	}
+	if len(o) > 0 && o[len(o)-1].valor == r.valor {
+		o[len(o)-1].cant += r.cant
+		return o
+	}
+	return append(o, r)
+}
+
 func Insert(o OptimumSlice, element int, position int) OptimumSlice {
+	if position < 0 || position > Len(o) {
+		panic("posición fuera de rango")
+	}
+
 	posicion := 0
 
 	for i, r := range o {
-		if posicion+r.ocurrencias > position {
-			elementosAntes := position - posicion // cuántos elementos de esta racha van antes del nuevo
+		if posicion+r.cant > position {
+			elementosAntes := position - posicion
 
-			// mismo valor que la racha actual → solo incrementar
 			if element == r.valor {
 				resultado := copiar(o)
-				resultado[i].ocurrencias++
+				resultado[i].cant++
 				return resultado
 			}
 
-			// inserción en el límite y coincide con la racha anterior → fusionar
-			if elementosAntes == 0 && i > 0 && element == o[i-1].valor {
-				resultado := copiar(o)
-				resultado[i-1].ocurrencias++
-				return resultado
-			}
+			antes := nodo{r.valor, elementosAntes}
+			nuevo := nodo{element, 1}
+			despues := nodo{r.valor, r.cant - elementosAntes}
 
-			// caso general: partir la racha en tres partes
-			antes   := run{r.valor, elementosAntes}
-			nuevo   := run{element, 1}
-			despues := run{r.valor, r.ocurrencias - elementosAntes}
-
-			// make(tipo, len, cap): slice vacío con capacidad pre-asignada
 			resultado := make(OptimumSlice, 0, len(o)+2)
-			resultado = append(resultado, o[:i]...)   // o[:i]...: expande el sub-slice como argumentos
-			if antes.ocurrencias > 0 {
-				resultado = append(resultado, antes)
+
+			for _, x := range o[:i] {
+				resultado = appendMerge(resultado, x)
 			}
-			resultado = append(resultado, nuevo)
-			if despues.ocurrencias > 0 {
-				resultado = append(resultado, despues)
+			resultado = appendMerge(resultado, antes)
+			resultado = appendMerge(resultado, nuevo)
+			resultado = appendMerge(resultado, despues)
+			for _, x := range o[i+1:] {
+				resultado = appendMerge(resultado, x)
 			}
-			resultado = append(resultado, o[i+1:]...) // o[i+1:]: desde el run siguiente al final
 			return resultado
 		}
-		posicion += r.ocurrencias
+		posicion += r.cant
 	}
 
-	// insertar al final
+	// Insertar al final absoluto
 	resultado := copiar(o)
-	if !IsEmpty(resultado) && resultado[len(resultado)-1].valor == element {
-		resultado[len(resultado)-1].ocurrencias++
-		return resultado
-	}
-	return append(resultado, run{element, 1})
+	resultado = appendMerge(resultado, nodo{element, 1})
+	return resultado
 }
 
 func SliceArray(o OptimumSlice) []int {
-	// make([]int, 0, cap): evita re-alocar memoria durante los append
-	result := make([]int, 0, Len(o))
-	for _, r := range o {
-		for i := 0; i < r.ocurrencias; i++ {
-			result = append(result, r.valor)
+	var result []int
+	for _, n := range o {
+		for i := 0; i < n.cant; i++ {
+			result = append(result, n.valor)
 		}
 	}
 	return result
@@ -165,28 +172,36 @@ func SliceArray(o OptimumSlice) []int {
 func main() {
 	base := []int{3, 3, 3, 1, 1, 5, 5, 5}
 	o := New(base)
-	fmt.Printf("Base: %v\n\n", []run(o))
 
-	// caso 1: insert al inicio (posición 0, valor diferente)
+	fmt.Println("Slice original:")
+	fmt.Println([]nodo(o))
+	fmt.Println()
+
+	// al inicio
 	r1 := Insert(o, 9, 0)
-	fmt.Printf("Insert(9, 0) — al inicio:\n  %v\n", []run(r1))
+	fmt.Println("Insert(9,0) -> Esperado: [{9 1} {3 3} {1 2} {5 3}]")
+	fmt.Println([]nodo(r1))
+	fmt.Println()
 
-	// caso 2: insert al final
-	r2 := Insert(o, 9, 9999)
-	fmt.Printf("Insert(9, final):\n  %v\n", []run(r2))
+	// en medio, rompiendo un bloque
+	r2 := Insert(o, 9, 1)
+	fmt.Println("Insert(9,1) -> Esperado: [{3 1} {9 1} {3 2} {1 2} {5 3}]")
+	fmt.Println([]nodo(r2))
+	fmt.Println()
 
-	// caso 3: insert en medio rompiendo un bloque
-	// base: [{3,3},{1,2},{5,3}] → insertar 9 en posición 1 (dentro del run {3,3})
-	r3 := Insert(o, 9, 1)
-	fmt.Printf("Insert(9, 1) — rompe bloque {3,3}:\n  %v\n", []run(r3))
+	// fusiona con bloque existente (mismo valor)
+	r3 := Insert(o, 3, 3)
+	fmt.Println("Insert(3,3) -> Esperado: [{3 4} {1 2} {5 3}]")
+	fmt.Println([]nodo(r3))
+	fmt.Println()
 
-	// caso 4: fusión con bloque vecino
-	// base: [{3,3},{1,2},{5,3}] → insertar 3 en posición 3 (límite entre {3,3} y {1,2})
-	// sin fusión quedaría [{3,3},{3,1},{1,2},{5,3}] ← inválido
-	// con fusión debe quedar [{3,4},{1,2},{5,3}]
-	r4 := Insert(o, 3, 3)
-	fmt.Printf("Insert(3, 3) — fusión con bloque anterior:\n  %v\n", []run(r4))
+	// fusiona con el bloque de la derecha
+	o2 := New([]int{3, 3, 3, 1, 1, 3, 3})
+	fmt.Println("Segundo arreglo:")
+	fmt.Println([]nodo(o2))
+	fmt.Println()
 
-	// verificar que o no fue mutado
-	fmt.Printf("\nOriginal sin mutar: %v\n", []run(o))
+	r4 := Insert(o2, 3, 5)
+	fmt.Println("Insert(3,5) -> Esperado: [{3 3} {1 2} {3 3}]")
+	fmt.Println([]nodo(r4))
 }
