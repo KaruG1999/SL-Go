@@ -68,3 +68,15 @@ for {
 ```
 
 > `timeout1` y `timeout2` se crean una sola vez fuera del loop. Si se pusieran dentro del loop, se reiniciarían en cada iteración y nunca dispararían.
+
+---
+
+## Conceptos de Teoría
+
+**`time.After(d)`:** devuelve un `<-chan time.Time` que envía un valor único luego de la duración `d`. Se usa como caso en `select` para implementar timeouts sin goroutines adicionales.
+
+**Timeout con `select`:** el caso `<-time.After(d)` compite con los demás casos del select. Si ningún canal tiene datos en `d` tiempo, el timeout gana y se puede reaccionar (cancelar, loggear, salir).
+
+**Creación del timer fuera del loop:** `time.After` crea un canal de un solo disparo. Si se llama dentro del loop, cada iteración crea un timer nuevo que empieza desde cero — el timeout nunca llega. Crearlo antes del loop hace que cuente desde el inicio del programa.
+
+**Canal `nil` para dejar de escuchar:** al asignar `nil` a `ch1` después del primer timeout, ese canal deja de participar en el `select`. El programa sigue procesando `ch2` hasta que dispara `timeout2`. Evita tener que reorganizar la lógica del loop.

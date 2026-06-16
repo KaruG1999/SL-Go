@@ -77,3 +77,15 @@ func main() {
 ```
 
 > El canal `pingCh` con buffer de 1 permite que PING arranque sin bloquearse. Cada goroutine espera su señal antes de imprimir, garantizando la alternancia.
+
+---
+
+## Conceptos de Teoría
+
+**Canal sin buffer (`make(chan T)`):** la operación de envío bloquea hasta que haya un receptor listo, y viceversa. Sincronización punto a punto. No tiene orden garantizado cuando hay múltiples goroutines compitiendo.
+
+**Canal con buffer (`make(chan T, n)`):** permite hasta `n` envíos sin receptor listo. Usado acá con capacidad 1 para "inyectar" el primer token y que PING arranque sin bloquearse.
+
+**Canal como token/semáforo:** un valor en un canal representa "tu turno". El receptor espera el token, actúa, y lo pasa al siguiente. Es el patrón estándar en Go para garantizar orden entre goroutines sin mutexes.
+
+**No determinismo en canales:** cuando varias goroutines envían al mismo canal, Go no garantiza el orden de recepción. Por eso el código base del enunciado no puede garantizar PING/PONG alternado — se necesitan dos canales separados.

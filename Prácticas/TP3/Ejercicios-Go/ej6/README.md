@@ -92,3 +92,19 @@ for val := range ch {
 ```
 
 > Con `range ch`, el consumidor itera hasta que el canal esté cerrado y vacío, sin necesidad de saber de antemano cuántos items habrá.
+
+---
+
+## Conceptos de Teoría
+
+**Modelo de memoria compartida:** múltiples goroutines acceden a la misma variable. Requiere sincronización explícita para evitar race conditions (lecturas y escrituras concurrentes sobre el mismo dato).
+
+**`sync.Mutex`:** garantiza exclusión mutua. Solo un goroutine puede estar dentro de `Lock()`/`Unlock()` a la vez. El consumidor con mutex necesita hacer *polling* (revisar si hay datos en un loop), lo que consume CPU innecesariamente.
+
+**Canal sin buffer como rendezvous:** productor y consumidor se sincronizan en cada envío/recepción. Garantiza que el valor es entregado antes de continuar. Desventaja: si no hay consumidor listo, el productor se bloquea.
+
+**Canal con buffer:** desacopla productor y consumidor — el productor puede avanzar hasta llenar la capacidad sin esperar. Más eficiente pero requiere dimensionar bien el buffer.
+
+**`sync.WaitGroup`:** contador de goroutines activos. `Add(1)` antes de lanzar, `Done()` al terminar (con `defer`), `Wait()` para bloquear hasta que todos lleguen a cero.
+
+**`close(ch)` + `range`:** patrón idiomático para terminación dinámica. Cerrar el canal señaliza a los consumidores que no habrá más datos; `range ch` itera hasta que el canal esté cerrado y vacío. Permite que productores y consumidores tengan cardinalidades distintas.

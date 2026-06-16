@@ -68,3 +68,15 @@ case v, ok := <-ch1:
 ```
 
 Un canal `nil` en `select` nunca está listo, así que queda excluido automáticamente.
+
+---
+
+## Conceptos de Teoría
+
+**`select`:** permite esperar sobre múltiples operaciones de canal a la vez. Cuando hay más de un caso listo simultáneamente, Go elige uno al azar — no hay prioridad implícita.
+
+**Detección de canal cerrado:** la forma `v, ok := <-ch` permite saber si el canal fue cerrado (`ok == false`). Leer de un canal cerrado devuelve el valor cero del tipo sin bloquear, así que sin este chequeo el loop sería infinito.
+
+**Canal `nil` en `select`:** asignar `nil` a un canal lo excluye de todos los casos de `select` — un canal nil bloquea para siempre. Es la forma idiomática de "desactivar" un caso sin reestructurar el select.
+
+**Fan-in:** patrón donde múltiples canales de entrada se multiplexan en un único receptor usando `select`. Permite procesar eventos de distintas fuentes sin saber de antemano cuál tendrá un valor disponible primero.

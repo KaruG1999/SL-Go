@@ -78,3 +78,15 @@ func main() {
 ```
 
 > El canal actúa como barrera de sincronización. Es la forma idiomática en Go frente a `time.Sleep`.
+
+---
+
+## Conceptos de Teoría
+
+**Goroutine:** hilo de ejecución liviano gestionado por el runtime de Go (no por el SO). Se lanza con la palabra clave `go` y corre concurrentemente al goroutine que la invoca.
+
+**Goroutine del main:** es el goroutine principal. Cuando termina, el programa termina y destruye todos los demás goroutines, sin importar si terminaron o no. Por eso sin sincronización `hello()` nunca llega a imprimirse.
+
+**`time.Sleep` como sincronización:** funciona en la práctica pero no garantiza correctitud — si la máquina está lenta o la goroutine tarda más, el resultado cambia. No escala.
+
+**Channel synchronization:** un canal sin buffer (`make(chan bool)`) usado como señal de finalización. El receptor bloquea hasta que la goroutine envíe, garantizando que el trabajo terminó. Es el mecanismo idiomático en Go para sincronización simple.
