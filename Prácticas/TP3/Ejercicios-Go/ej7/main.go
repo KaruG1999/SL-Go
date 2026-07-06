@@ -15,7 +15,7 @@ var (
 
 func lector(id int) {
 	defer wg.Done()
-	rw.Rlock()
+	rw.RLock()
 	fmt.Printf("Lector %d lee %d\n", id, dato)
 	time.Sleep(time.Second)
 	rw.RUnlock()
@@ -31,16 +31,16 @@ func escritor(id int){
 }
 
 func main (){
-	cantLectores := randIntn(5)+1
-	cantEscritores := randIntn(5)+1
+	cantLectores := rand.Intn(5) + 1
+	cantEscritores := rand.Intn(5) + 1
 
 	wg.Add(cantEscritores + cantLectores)
 
-	for i:=1; i<cantLectores; i++{
+	for i := 1; i <= cantLectores; i++ {
 		go lector(i)
 	}
 
-	for i:=1; i<cantEscritores; i++{
+	for i := 1; i <= cantEscritores; i++ {
 		go escritor(i)
 	}
 	wg.Wait()

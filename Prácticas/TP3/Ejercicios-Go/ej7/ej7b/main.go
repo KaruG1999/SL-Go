@@ -6,13 +6,7 @@ import (
 	"time"
 )
 
-import(
-	"fmt"
-	"sync"
-	"time"
-)
-
-func lector(int id, pedirLeer chan int, finLeer chan int, permisoLeer chan bool, wg *sunc.WaitGroup){
+func lector(id int, pedirLeer chan int, finLeer chan int, permisoLeer chan bool, wg *sync.WaitGroup){
 	defer wg.Done()
 	// Pide leer al coord enviandole id y espera respuesta
 	pedirLeer <- id
@@ -26,15 +20,15 @@ func lector(int id, pedirLeer chan int, finLeer chan int, permisoLeer chan bool,
 	finLeer <- id
 }
 
-func escritor(int id, pedirEscribir chan int, finEscribir chan int, permisoEscribir chan bool, wg *sync.WaitGroup){
+func escritor(id int, pedirEscribir chan int, finEscribir chan int, permisoEscribir chan bool, wg *sync.WaitGroup){
 	defer wg.Done()
 
 	pedirEscribir <- id
 	<- permisoEscribir
 
-	fmt.Printf("Lector %d leyendo...\n",id)
+	fmt.Printf("Escritor %d escribiendo...\n", id)
 	time.Sleep(2 * time.Second)
-	fmt.Printf("Lector %d terminó\n", id)
+	fmt.Printf("Escritor %d terminó\n", id)
 
 	finEscribir <- id
 }
@@ -74,7 +68,7 @@ func coordinador(pedirLeer chan int, finLeer chan int, pedirEscribir chan int, f
 				permisoLeer <- true // Le da el ok para leer
 			case id := <- finLeer:
 				lectoresActivos--
-				fmt.Printf("Coordinador: sale lector %d (lectores = %d)/n",id, lectoresActivos)
+				fmt.Printf("Coordinador: sale lector %d (lectores = %d)\n",id, lectoresActivos)
 			case id := <- escrituraGuard:
 				escribiendo = true
 				fmt.Printf("Coordinador: entra escritor %d", id)
