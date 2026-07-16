@@ -2,7 +2,7 @@ package main
 
 import "fmt"
 
-type Fecha struct { // Opcional? 
+type Fecha struct { // Opcional o paquet? 
 	Dia  int
 	Mes  int
 	Anio int
@@ -18,7 +18,6 @@ type Ingresante struct {
 }
 
 //  Lista enlazada de Ingresante
-
 type nodo struct {
 	elem Ingresante
 	sig  *nodo
@@ -47,7 +46,7 @@ func (l *List) PushBack(ing Ingresante) {
 	l.len++
 }
 
-// ── Recorrido único ─────
+// Recorrido único
 
 func procesarLista(l *List) {
 	anioConteo := make(map[int]int)
@@ -55,11 +54,12 @@ func procesarLista(l *List) {
 
 	fmt.Println("a) Ingresantes de Bariloche:")
 
-	var prev *nodo = nil
-	curr := l.pri
+	// Como no usamos puntero al anterior guardamos el ant solo cuando es necesario
+	var ant *nodo = nil
+	act := l.pri
 
-	for curr != nil {
-		ing := curr.elem
+	for act != nil {
+		ing := act.elem
 
 		// a) ciudad Bariloche
 		if ing.Ciudad == "Bariloche" {
@@ -74,18 +74,18 @@ func procesarLista(l *List) {
 
 		// d) eliminar si no tiene título
 		if !ing.TieneTitulo {
-			if prev == nil {
-				l.pri = curr.sig
+			if ant == nil {
+				l.pri = act.sig
 			} else {
-				prev.sig = curr.sig
+				ant.sig = act.sig
 			}
 			l.len--
-			curr = curr.sig
+			act = act.sig
 			continue
 		}
 
-		prev = curr
-		curr = curr.sig
+		ant = act
+		act = act.sig
 	}
 
 	// b) año con más ingresantes
@@ -117,7 +117,7 @@ func imprimirLista(l List) {
 	fmt.Println()
 }
 
-// ── Main ────
+
 
 func main() {
 	l := New()

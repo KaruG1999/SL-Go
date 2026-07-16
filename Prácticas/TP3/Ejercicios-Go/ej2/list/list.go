@@ -32,7 +32,7 @@ func (l *List[T]) PushBack(val T) {
 		l.ini = nuevo
 		l.fin = nuevo
 	} else {
-		// ?
+		// engancho el nuevo al final y actualizo fin
 		l.fin.next = nuevo
 		l.fin = nuevo
 	}

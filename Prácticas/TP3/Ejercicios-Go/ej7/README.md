@@ -43,39 +43,51 @@ func escribir(id, val int) {
 }
 ```
 
-### Solución 2 — Con canales
+### Solución 2 — Con canales (como está en `ej7b/main.go`)
 
-Usar una goroutine "coordinadora" que serializa el acceso mediante canales:
+Una goroutine "coordinadora" gobierna quién puede entrar, usando canales de pedido/permiso/fin para cada rol y `select` con **guardas dinámicas** (canales que se ponen en `nil` para "apagar" ese case cuando no corresponde):
 
 ```go
-type request struct {
-    write bool
-    val   int
-    resp  chan int
-}
+func coordinador(pedirLeer, finLeer, pedirEscribir, finEscribir chan int, permisoLeer, permisoEscribir chan bool) {
+    lectoresActivos := 0
+    escribiendo := false
 
-func coordinador(req chan request) {
-    data := 0
-    for r := range req {
-        if r.write {
-            data = r.val
-            r.resp <- 0
-        } else {
-            r.resp <- data
+    for {
+        var lecturaGuard, escrituraGuard chan int
+
+        if !escribiendo {
+            lecturaGuard = pedirLeer // solo se puede entrar a leer si nadie escribe
+        }
+        if lectoresActivos == 0 && !escribiendo {
+            escrituraGuard = pedirEscribir // solo se puede escribir si no hay nadie leyendo ni escribiendo
+        }
+
+        select {
+        case id := <-lecturaGuard:
+            lectoresActivos++
+            permisoLeer <- true
+        case id := <-finLeer:
+            lectoresActivos--
+        case id := <-escrituraGuard:
+            escribiendo = true
+            permisoEscribir <- true
+        case id := <-finEscribir:
+            escribiendo = false
         }
     }
 }
 ```
 
-Los lectores y escritores envían requests al coordinador y esperan respuesta:
+Lectores y escritores piden permiso y avisan cuando terminan:
 
 ```go
-resp := make(chan int)
-req <- request{write: false, resp: resp}
-val := <-resp
+pedirLeer <- id
+<-permisoLeer
+// ... leer ...
+finLeer <- id
 ```
 
-> Con canales, la exclusión está implícita: el coordinador procesa un request a la vez. La solución con `RWMutex` es más eficiente porque permite paralelismo real entre lectores.
+> A diferencia de un coordinador que serializa todo (un request a la vez), acá el `select` con guardas sí permite varios lectores concurrentes: mientras `escribiendo` sea `false`, todos los pedidos de lectura se aceptan sin esperar. Solo se bloquea la lectura cuando hay un escritor activo, y solo se bloquea la escritura cuando hay lectores o un escritor activo. Es más código que la versión con `RWMutex`, pero replica el mismo comportamiento sin locks, a mano.
 
 ---
 
@@ -87,6 +99,8 @@ val := <-resp
 
 **Modelo CSP (Communicating Sequential Processes):** alternativa al modelo de memoria compartida. En lugar de proteger datos con locks, los goroutines se comunican enviando mensajes por canales. El lema de Go: *"No comuniques compartiendo memoria; compartí memoria comunicando"*.
 
-**Goroutine coordinadora:** patrón CSP donde un único goroutine "posee" el dato y lo expone mediante un canal de requests. La exclusión es implícita porque el coordinador procesa un mensaje a la vez. Desventaja frente a `RWMutex`: serializa también las lecturas, perdiendo el paralelismo entre lectores.
+**Goroutine coordinadora:** patrón CSP donde un único goroutine "posee" el estado (`lectoresActivos`, `escribiendo`) y decide quién entra. No hace falta que sea un cuello de botella para las lecturas: con guardas dinámicas en el `select`, el coordinador solo serializa las decisiones de *entrada/salida* (que son rápidas), mientras que la lectura en sí ocurre en paralelo en cada goroutine lectora.
 
-**Canal de respuesta (`resp chan int`):** para modelar llamadas síncronas sobre canales, cada request lleva su propio canal de respuesta. El solicitante se bloquea leyendo de ese canal hasta que el coordinador responde.
+**Guardas dinámicas (`nil` channels en `select`):** un `case` de un `select` que lee de un canal `nil` nunca está listo, así que ese `case` queda "apagado". Poniendo o sacando el canal real según el estado (`escribiendo`, `lectoresActivos`), el mismo `select` habilita o deshabilita cada camino en cada vuelta del loop.
+
+**Canal de permiso (`permisoLeer`, `permisoEscribir`):** el coordinador no devuelve el dato en sí, solo un "adelante" — el lector/escritor hace su trabajo por su cuenta y después avisa por otro canal (`finLeer`/`finEscribir`) que terminó, para que el coordinador actualice su estado.

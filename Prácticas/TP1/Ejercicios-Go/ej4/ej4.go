@@ -6,7 +6,7 @@ func main() {
 	/*  imprima en la salida estándar la suma
 	de los primeros números positivos pares menores o iguales a
 	250 */
-	var sum int = 0
+	var sum int = 0 // o sum := 0
 	for i := 0; i <= 250; i += 2 {
 		sum += i
 	}

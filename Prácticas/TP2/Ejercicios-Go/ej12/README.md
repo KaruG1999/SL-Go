@@ -18,9 +18,7 @@ Implementar el tipo de datos **Ingresante** y la funcionalidad solicitada.
 
 ---
 
-## Lógica de resolución
-
-### Tipos
+## Lógica de resolución (como está en `main.go`)
 
 ```go
 type Carrera string
@@ -35,62 +33,61 @@ type Fecha struct {
 }
 
 type Ingresante struct {
-    Apellido  string
-    Nombre    string
-    Ciudad    string
-    Nacimiento Fecha
+    Apellido    string
+    Nombre      string
+    Ciudad      string
+    Nacimiento  Fecha
     TieneTitulo bool
-    Carrera   Carrera
+    Carrera     Carrera
 }
-```
 
-### Parte a — String()
-
-```go
 func (i Ingresante) String() string {
     titulo := "No"
-    if i.TieneTitulo { titulo = "Sí" }
-    return fmt.Sprintf("%s, %s | %s | Nac: %02d/%02d/%d | Título: %s | Carrera: %s",
+    if i.TieneTitulo { titulo = "Si" }
+    return fmt.Sprintf("%s, %s (%s) - Nac: %02d/%02d/%d - Titulo secundario: %s - Carrera: %s",
         i.Apellido, i.Nombre, i.Ciudad,
         i.Nacimiento.Dia, i.Nacimiento.Mes, i.Nacimiento.Anio,
         titulo, i.Carrera)
 }
 ```
 
-### Parte b — funciones de comparación
+### Funciones de comparación (parte b)
 
 ```go
-// Por edad: mayor año de nacimiento = más joven
+// MasJoven: true si a nacio despues que b
 func MasJoven(a, b Ingresante) bool {
-    fa, fb := a.Nacimiento, b.Nacimiento
-    if fa.Anio != fb.Anio { return fa.Anio > fb.Anio }
-    if fa.Mes != fb.Mes   { return fa.Mes > fb.Mes }
-    return fa.Dia > fb.Dia
+    if a.Nacimiento.Anio != b.Nacimiento.Anio {
+        return a.Nacimiento.Anio > b.Nacimiento.Anio
+    }
+    if a.Nacimiento.Mes != b.Nacimiento.Mes {
+        return a.Nacimiento.Mes > b.Nacimiento.Mes
+    }
+    return a.Nacimiento.Dia > b.Nacimiento.Dia
 }
 
-// Por orden alfabético (apellido, luego nombre)
+// MenorAlfabetico: compara apellido y despues nombre
 func MenorAlfabetico(a, b Ingresante) bool {
-    if a.Apellido != b.Apellido { return a.Apellido < b.Apellido }
+    if a.Apellido != b.Apellido {
+        return a.Apellido < b.Apellido
+    }
     return a.Nombre < b.Nombre
 }
 ```
 
-### Parte c — ordenar con el package sort
+### Ordenar con `sort.Slice` (parte c)
 
 ```go
-import "sort"
-
-ingresantes := []Ingresante{ /* ... */ }
-
-// Ordenar por edad (más jóvenes primero)
 sort.Slice(ingresantes, func(i, j int) bool {
     return MasJoven(ingresantes[i], ingresantes[j])
 })
 
-// Ordenar por apellido y nombre
 sort.Slice(ingresantes, func(i, j int) bool {
     return MenorAlfabetico(ingresantes[i], ingresantes[j])
 })
 ```
 
-> `sort.Slice` recibe el slice y una función de comparación `less(i, j int) bool` que retorna true si el elemento i debe ir antes que el j. Es la forma idiomática de ordenar en Go sin implementar ninguna interfaz.
+## Observaciones
+
+- `sort.Slice` no pide implementar ninguna interfaz: solo necesita el slice y una función `less(i, j int) bool`. Es la forma más simple de ordenar en Go cuando no querés definir `sort.Interface` a mano.
+- Cada llamada a `sort.Slice` ordena el mismo slice de nuevo, sobre el resultado del orden anterior — por eso el ejemplo imprime tres veces, para ver cómo cambia el orden.
+- La comparación de edad va por año, después mes, después día — hay que comparar de a un campo a la vez porque `Fecha` no tiene una comparación directa entre structs (`>` no existe para structs en Go).

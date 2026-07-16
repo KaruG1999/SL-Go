@@ -16,6 +16,7 @@ func main() {
 
 	var mayusculas, minusculas, numeros, especiales int
 
+	// Acá range procesa el texto en runas 
 	for _, c := range texto {
 		switch {
 		case unicode.IsUpper(c):

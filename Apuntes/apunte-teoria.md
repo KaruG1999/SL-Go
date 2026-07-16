@@ -168,6 +168,67 @@ const (
 - `float32`, `float64`: valor por defecto `0`.
 - `complex64`, `complex128`: valor por defecto `(0+0i)`.
 
+## Runas (rune) y strings con Unicode
+
+Un `string` en Go es, por dentro, una secuencia de **bytes** codificados en UTF-8 — no una secuencia de caracteres. Mientras el texto sea ASCII puro (letras sin tilde, números, símbolos comunes) cada carácter ocupa 1 byte y todo coincide. El problema aparece con tildes y otros caracteres especiales (`á`, `é`, `ñ`, `ó`), que en UTF-8 ocupan **2 bytes o más** cada uno.
+
+```go
+s := "café"
+fmt.Println(len(s))            // 5  (bytes: c-a-f-é ocupa 2 bytes, total 5)
+fmt.Println(len([]rune(s)))    // 4  (caracteres reales: c, a, f, é)
+```
+
+**Ojo (la trampa más común):** indexar un string directamente con `s[i]` te da el **byte** en esa posición, no el carácter. Con acentos, eso rompe:
+
+```go
+s := "café"
+for i := 0; i < len(s); i++ {
+    fmt.Printf("%c ", s[i])
+}
+// imprime: c a f Ã © -- ¡la é quedó partida en dos bytes basura!
+```
+
+**La solución: convertir a `[]rune(s)` antes de trabajar carácter a carácter.** Cada elemento de un `[]rune` es un carácter completo (un "code point" Unicode), sin importar cuántos bytes ocupaba en UTF-8:
+
+```go
+runas := []rune(s)          // []rune{'c','a','f','é'}
+for i := 0; i < len(runas); i++ {
+    fmt.Printf("%c ", runas[i])
+}
+// imprime: c a f é   -- ahora sí, correcto
+```
+
+**Alternativa: `for range` sobre un string ya va rune por rune solo**, sin necesidad de convertir antes (Go internamente decodifica el UTF-8 por vos):
+
+```go
+for i, r := range s {
+    fmt.Printf("indice %d: %c\n", i, r)
+}
+// indice 0: c
+// indice 1: a
+// indice 2: f
+// indice 3: é    <- el índice salta de 3 a "el próximo byte disponible", no de a 1 siempre
+```
+
+**Ojo:** en el `for range`, el índice que da es la posición en **bytes** donde empieza esa runa (por eso no necesariamente avanza de 1 en 1 si hubo caracteres multi-byte antes), pero el valor `r` ya es el carácter completo y correcto.
+
+**Volver de `[]rune` a `string`:** con una conversión directa, `string(runas)`.
+
+**Rune literal:** se escribe entre comillas simples, `'a'`. Su tipo es `rune` (o sea `int32`), así que si lo imprimís con `Println` sin más, ves el número (el "code point"), no la letra:
+
+```go
+var r rune = 'a'
+fmt.Println(r)        // 97
+fmt.Printf("%c\n", r) // a   -- hace falta %c para verlo como carácter
+```
+
+**Funciones típicas que se usan junto con `[]rune`** (del package `unicode`, para trabajar con cualquier alfabeto, no solo ASCII):
+- `unicode.IsUpper(r)` / `unicode.IsLower(r)`: si una runa es mayúscula/minúscula.
+- `unicode.ToUpper(r)` / `unicode.ToLower(r)`: convierte una runa a mayúscula/minúscula.
+- `strings.Builder` + `sb.WriteRune(r)`: para armar un string resultado runa por runa, de forma eficiente (en vez de concatenar strings con `+` en un loop, que es más lento).
+
+**Regla para el examen:** si el ejercicio dice o insinúa que el texto puede tener tildes/ñ/Unicode, y hay que indexar, invertir, comparar posición a posición, o modificar caracteres — convertí primero a `[]rune`. Si solo hay que recorrer de punta a punta sin indexar por número, `for range` sobre el string alcanza sin necesidad de convertir.
+
 ## Conversión de tipos
 
 Si `T` es un tipo y `v` es un valor, `T(v)` convierte el valor de `v` al tipo `T`. Se puede hacer entre tipos numéricos, o entre tipos que tengan el mismo "tipo subyacente" (la base sobre la que están construidos).
@@ -544,6 +605,24 @@ fmt.Printf("%s is %d years old.\n", name, age)
 ```
 
 **Ojo:** la diferencia entre `Print` y `Println` es sutil — `Print` solo agrega espacio entre dos argumentos si **ninguno de los dos** es un string; `Println` siempre pone espacio entre todos y además agrega un salto de línea al final automáticamente (`Print` no).
+
+**Ojo (trampa muy típica de examen): esta regla de "agregar espacio" es SOLO entre argumentos de un mismo llamado, nunca entre llamados distintos.**
+
+```go
+fmt.Print(1, 2, 3)   // "1 2 3"   -- un solo llamado, 3 argumentos int (ninguno string) -> agrega espacios
+
+for i := 1; i <= 3; i++ {
+    fmt.Print(i)     // "123"    -- TRES llamados separados, cada uno con UN solo argumento
+}
+// no hay "vecino" dentro de cada llamado individual, así que no hay nada que espaciar,
+// y Print no agrega nada por su cuenta entre un llamado y el siguiente
+
+for i := 1; i <= 3; i++ {
+    fmt.Println(i)   // 1\n2\n3\n  -- Println siempre agrega salto de línea al final de CADA llamado
+}
+```
+
+Es fácil confundirse acá porque a simple vista "tres números seguidos" parece que deberían separarse solos, pero `Print` nunca sabe nada de la llamada anterior ni la siguiente — solo mira los argumentos que recibió en esa llamada puntual.
 
 ### Marcas / verbos de Printf — generales
 

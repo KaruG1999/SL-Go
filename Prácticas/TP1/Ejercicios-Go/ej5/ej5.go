@@ -7,21 +7,21 @@ import (
 
 /* f(x) = |x| si xe (-inf, -18), xmod4 si xe [-18,-1], x² si xe [1,20) -x si xe [20, inf) */
 func evaluarFuncion(x float64) float64 {
-	switch {
-	case x < -18:
-		return math.Abs(x)
-	case x <= -1: // El límite inferior ya fue filtrado por el caso anterior
-		return math.Mod(x, 4)
-	case x < 1:
-		// Definir comportamiento para (-1, 1).
-		// Actualmente cae en el 'else' final (-x).
-		return -x
-	case x <= 20:
-		return x * x // Más rápido que math.Pow(x, 2)
-	default:
-		return -x
-	}
+    switch {
+    case x < -18.0:
+        return math.Abs(x)
+    case x <= -1.0:
+        return math.Mod(x, 4.0)   // math.Mod hereda el signo del dividendo (el primer parámetro) -> puede ser neg
+    case x < 1.0:
+        return -x
+    case x < 20.0:
+        return x * x
+    }
+    // No hay 'default' ni 'else'. Si no entró a ningún case anterior,
+    // por decantación lógica el número es >= 20.
+    return -x 
 }
+
 
 func main() {
 	/*lea un número y muestre el valor
@@ -51,7 +51,7 @@ func evaluarFuncion(x float64) float64 {
 		return math.Mod(x, 4)
 	} else if x < 1 {
 		return -x
-	} else if x <= 20 {
+	} else if x < 20 {
 		return x * x
 	} else {
 		return -x
@@ -67,7 +67,7 @@ func evaluarFuncion(x float64) float64 {
 		return math.Mod(x, 4.0)
 	} else if x < 1.0 {
 		return -x
-	} else if x <= 20.0 {
+	} else if x < 20.0 {
 		return x * x
 	} else {
 		return -x

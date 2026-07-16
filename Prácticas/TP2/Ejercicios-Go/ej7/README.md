@@ -10,36 +10,22 @@ Leer una secuencia de caracteres que finaliza con CR (Enter) e informar la canti
 
 ---
 
-## Lógica de resolución
+## Lógica de resolución (como está en `base/`, `a/` y `b/`)
 
-### Lectura de caracteres (runas)
+### Base
 
 ```go
 var letras, numeros, especiales int
 
-scanner := bufio.NewScanner(os.Stdin)
-scanner.Scan()
-linea := scanner.Text()
-
-for _, r := range linea {
-    // r es de tipo rune
-}
-```
-
-En Go, iterar un `string` con `range` da runas (`rune` = `int32`), no bytes. Es la forma correcta de manejar caracteres Unicode.
-
-### Clasificación de runas
-
-```go
-import "unicode"
-
-for _, r := range linea {
-    switch {
-    case unicode.IsLetter(r):
+for _, caracter := range texto {
+    if caracter == '\n' || caracter == '\r' {
+        continue // no contar el Enter que termina la entrada
+    }
+    if unicode.IsLetter(caracter) {
         letras++
-    case unicode.IsDigit(r):
+    } else if unicode.IsDigit(caracter) {
         numeros++
-    default:
+    } else {
         especiales++
     }
 }
@@ -48,15 +34,15 @@ for _, r := range linea {
 ### Parte a — mayúsculas y minúsculas
 
 ```go
-var mayusculas, minusculas int
+var mayusculas, minusculas, numeros, especiales int
 
-for _, r := range linea {
+for _, c := range texto {
     switch {
-    case unicode.IsUpper(r):
+    case unicode.IsUpper(c):
         mayusculas++
-    case unicode.IsLower(r):
+    case unicode.IsLower(c):
         minusculas++
-    case unicode.IsDigit(r):
+    case unicode.IsDigit(c):
         numeros++
     default:
         especiales++
@@ -64,14 +50,14 @@ for _, r := range linea {
 }
 ```
 
-### Parte b — conteo de dígitos con Map
+### Parte b — conteo de dígitos con map
 
 ```go
 digitos := make(map[rune]int)
 
-for _, r := range linea {
-    if unicode.IsDigit(r) {
-        digitos[r]++
+for _, c := range texto {
+    if unicode.IsDigit(c) {
+        digitos[c]++
     }
 }
 
@@ -80,4 +66,8 @@ for d := '0'; d <= '9'; d++ {
 }
 ```
 
-> Si una clave no existe en el map, Go retorna el **zero value** del tipo valor (0 para `int`), así que `digitos[r]++` funciona incluso si `r` aparece por primera vez.
+## Observaciones
+
+- `range` sobre un string da runas, no bytes — importante si el texto tiene tildes o ñ, cada carácter se cuenta como una unidad aunque ocupe más de un byte.
+- La lectura con `bufio.Scanner` ya corta en el salto de línea, pero igual se filtra `\n`/`\r` explícitamente por las dudas.
+- En la parte b, si una clave todavía no apareció en el map, `digitos[d]` devuelve 0 (zero value), así que el `for` final imprime los 10 dígitos aunque algunos no hayan aparecido nunca.

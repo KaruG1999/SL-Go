@@ -22,25 +22,20 @@ type Map[K comparable, V any] map[K]V
 
 El parámetro `K` debe ser `comparable` (condición para ser clave de map en Go). `V` puede ser cualquier tipo.
 
-### Uso 1 — ejemplo con string → int
+### Uso 1 — clave string, valor int (como en `main.go`)
 
 ```go
-m1 := Map[string, int]{"a": 1, "b": 2}
+inventario := make(Map[string, int])
+inventario["Arroz"] = 15
+inventario["Fideos"] = 4
 ```
 
-### Uso 2 — ejemplo con int → string (u otro tipo distinto)
+### Uso 2 — clave int, valor string
 
 ```go
-m2 := Map[int, string]{1: "uno", 2: "dos"}
-```
-
-### Operaciones típicas sobre el tipo
-
-```go
-m1["c"] = 3          // insertar
-v, ok := m1["a"]     // buscar (ok indica si existe)
-delete(m1, "b")      // eliminar
-for k, v := range m1 { ... }  // recorrer
+usuarios := make(Map[int, string])
+usuarios[1024] = "Karen"
+usuarios[2048] = "Alejandro"
 ```
 
 > El objetivo es ver que el mismo tipo genérico `Map[K, V]` funciona igual independientemente de los tipos concretos que se le pasen, sin duplicar código.

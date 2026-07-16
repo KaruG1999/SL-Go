@@ -17,3 +17,5 @@ func main() {
 	fmt.Println(zz, x, z, y, n, c, e, f)
 
 }
+
+// := siempre se puede utilizar solo dentro de una funcion (no a nivel paquete)

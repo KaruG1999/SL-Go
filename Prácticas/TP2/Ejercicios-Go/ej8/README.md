@@ -16,69 +16,43 @@ Ejemplo: `Convert(23, 2)` retorna `"10111"`.
 
 ---
 
-## Lógica de resolución
-
-### Idea base
-
-La conversión a base b se realiza obteniendo el resto de la división sucesiva por b, y los restos leídos de atrás hacia adelante forman el número. En código se puede hacer de forma iterativa o recursiva.
-
-### Versión iterativa
+## Lógica de resolución (como está en `base/` y `b/`)
 
 ```go
 const digitos = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func Convert(v int, b int) string {
-    if b < 2 || b > 36 {
-        panic("base inválida")
-    }
-    if v == 0 {
-        return "0"
-    }
-
-    negativo := v < 0
-    if negativo {
-        v = -v
-    }
-
-    result := ""
-    for v > 0 {
-        result = string(digitos[v%b]) + result  // preponer el dígito
-        v /= b
-    }
-
-    if negativo {
-        result = "-" + result
-    }
-    return result
-}
-```
-
-### Versión recursiva
-
-```go
-func convertRec(v int, b int) string {
-    if v == 0 {
-        return ""
-    }
-    return convertRec(v/b, b) + string(digitos[v%b])
-}
-
-func Convert(v int, b int) string {
     if v == 0 { return "0" }
-    if v < 0  { return "-" + convertRec(-v, b) }
-    return convertRec(v, b)
+    if b < 2 || b > 36 { return "Base inválida" }
+
+    resultado := ""
+    for v > 0 {
+        resto := v % b
+        digito := digitos[resto]
+        resultado = string(digito) + resultado // se antepone
+        v = v / b
+    }
+    return resultado
 }
 ```
 
-### Uso
+Parte b agrega el manejo del signo:
 
 ```go
-func main() {
-    fmt.Println(Convert(23, 2))   // "10111"
-    fmt.Println(Convert(255, 16)) // "FF"
-    fmt.Println(Convert(-10, 2))  // "-1010"
-    fmt.Println(Convert(0, 10))   // "0"
+negativo := false
+if v < 0 {
+    negativo = true
+    v = -v
 }
+// ... mismo loop ...
+if negativo { resultado = "-" + resultado }
 ```
 
-> `string(digitos[v%b])` convierte el byte en posición `v%b` del string `digitos` a un string de un carácter. El truco de **preponer** (`result = char + result`) construye el string en el orden correcto sin necesidad de invertirlo al final.
+## Observaciones
+
+- El chequeo de base válida originalmente decía `b > 32`, pero `digitos` tiene 36 caracteres (10 dígitos + 26 letras), así que las bases 33 a 36 son válidas. Ya está corregido a `b > 36` en el código — ojo si en algún momento se vuelve a tocar ese límite.
+
+- El truco de anteponer el dígito (`resultado = digito + resultado`) evita tener que invertir el string al final.
+- `digitos[resto]` da un `byte`, por eso hay que convertirlo con `string(...)` antes de concatenar.
+- El caso `v == 0` se resuelve aparte porque el `for v > 0` nunca entraría y devolvería un string vacío en vez de `"0"`.
+- No se usa `strings.Builder` acá, y cambiarlo tal cual no mejora nada: Builder es eficiente para *appendear*, pero el algoritmo *prepende* el dígito en cada vuelta (`digito + resultado`), que es justo lo que Builder no acelera. Para aprovecharlo de verdad hay que appendear los dígitos en el orden que salen (unidades primero) y invertir el string una sola vez al final — queda comentado como alternativa en el código.

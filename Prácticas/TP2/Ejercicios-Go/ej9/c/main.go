@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== container/list: operaciones equivalentes ===")
+	fmt.Println(" container/list: operaciones equivalentes ")
 	l := list.New()
 
 	// Equivalente a PushBack / PushFront

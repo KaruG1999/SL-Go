@@ -64,18 +64,18 @@ func coordinador(pedirLeer chan int, finLeer chan int, pedirEscribir chan int, f
 				// Recibe nro Id 
 			case id := <-lecturaGuard:
 				lectoresActivos++
-				fmt.Printf("Coordinador: entra lector %d (lectores = %d)", id, lectoresActivos)
+				fmt.Printf("Coordinador: entra lector %d (lectores = %d)\n", id, lectoresActivos)
 				permisoLeer <- true // Le da el ok para leer
 			case id := <- finLeer:
 				lectoresActivos--
 				fmt.Printf("Coordinador: sale lector %d (lectores = %d)\n",id, lectoresActivos)
 			case id := <- escrituraGuard:
 				escribiendo = true
-				fmt.Printf("Coordinador: entra escritor %d", id)
+				fmt.Printf("Coordinador: entra escritor %d\n", id)
 				permisoEscribir <- true
 			case id := <- finEscribir:
 				escribiendo=false
-				fmt.Printf("Coordinador: sale escritor %d", id)
+				fmt.Printf("Coordinador: sale escritor %d\n", id)
 			}
 
 		}

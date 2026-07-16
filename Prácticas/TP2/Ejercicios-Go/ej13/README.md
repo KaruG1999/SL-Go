@@ -12,9 +12,7 @@ Un banco tiene un listado de clientes que vienen a pagar impuestos. De cada clie
 
 ---
 
-## Lógica de resolución
-
-### Tipos
+## Lógica de resolución (como está en `main.go`)
 
 ```go
 type CodigoImpuesto string
@@ -32,60 +30,46 @@ type Cliente struct {
     Impuesto CodigoImpuesto
     Monto    float64
 }
-```
-
-### Parte a — atención de clientes
-
-```go
-clientes := []Cliente{ /* cargar datos */ }
 
 const META = 10000.0
-var recaudado float64
-var atendidos int
+```
 
-for i, c := range clientes {
+Las tres partes (a, b y c) se resuelven en un solo recorrido del slice de clientes, en vez de tres loops separados:
+
+```go
+var recaudado float64
+atendidos := 0
+conteo := make(map[CodigoImpuesto]int)
+
+for _, c := range clientes {
     if recaudado >= META {
         break
     }
     recaudado += c.Monto
-    atendidos = i + 1
+    conteo[c.Impuesto]++
+    atendidos++
 }
-
-fmt.Printf("Recaudado: $%.2f con %d clientes atendidos\n", recaudado, atendidos)
 ```
 
-### Parte b — impuesto más pagado
-
-Usar un `map` para contar cuántas veces se pagó cada código:
+Después de ese loop:
 
 ```go
-conteo := make(map[CodigoImpuesto]int)
-
-for _, c := range clientes[:atendidos] {
-    conteo[c.Impuesto]++
-}
-
-// Encontrar el máximo
-var masVeces CodigoImpuesto
-var maxConteo int
+// parte b: el código con más ocurrencias en 'conteo'
+var masPagado CodigoImpuesto
+max := 0
 for cod, cant := range conteo {
-    if cant > maxConteo {
-        maxConteo = cant
-        masVeces = cod
+    if cant > max {
+        max = cant
+        masPagado = cod
     }
 }
-fmt.Printf("Impuesto más pagado: %s (%d veces)\n", masVeces, maxConteo)
-```
 
-### Parte c — clientes sin atender
-
-```go
+// parte c: lo que quedó sin atender
 sinAtender := len(clientes) - atendidos
-if sinAtender > 0 {
-    fmt.Printf("Clientes sin atender: %d\n", sinAtender)
-} else {
-    fmt.Println("Todos los clientes fueron atendidos")
-}
 ```
 
-> El map es la estructura natural para acumular conteos por categoría en Go. Al recorrer el slice de clientes ya atendidos (`clientes[:atendidos]`), se usa la sintaxis de slice parcial que aprendimos en clase.
+## Observaciones
+
+- Se corta la atención con `break` apenas se llega a la meta, así que `atendidos` y `conteo` solo reflejan a los clientes efectivamente atendidos (justo lo que pide la parte b).
+- El `map[CodigoImpuesto]int` es lo que permite contar por código sin tener que declarar cuatro variables (una por A, B, C, D) a mano.
+- Si `clientes` se termina antes de llegar a la meta, el `for` simplemente se acaba solo (no hace falta chequear el largo aparte), y `sinAtender` da 0.

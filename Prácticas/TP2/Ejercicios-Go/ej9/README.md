@@ -25,109 +25,109 @@ func Iterate(self List, f func(int) int)
 
 ---
 
-## Lógica de resolución
-
-### Tipos
+## Lógica de resolución (`main.go` / `b/`)
 
 ```go
-type node struct {
-    val  int
-    next *node
+type nodo struct {
+    elem int
+    sig  *nodo
 }
 
-// List es un puntero al nodo raíz — nil representa la lista vacía
-type List *node
-```
+type List struct {
+    pri *nodo
+    len int
+}
 
-> En Go, el puntero `nil` representa naturalmente la lista vacía. `List` es un alias de `*node`.
+func New() List { return List{nil, 0} }
 
-### Operaciones básicas
-
-```go
-func New() List { return nil }
-
-func IsEmpty(self List) bool { return self == nil }
-
-func Len(self List) int {
-    count := 0
-    for n := self; n != nil; n = n.next {
-        count++
+func IsEmpty(l List) bool { return l.pri == nil && l.len == 0 }
+func Len(l List) int      { return l.len }
+func FrontElement(l List) int { return l.pri.elem } // no chequea lista vacía
+func Next(l List) List {
+    if l.pri == nil || l.pri.sig == nil {
+        return New()
     }
-    return count
+    return List{pri: l.pri.sig, len: l.len - 1}
 }
-
-func FrontElement(self List) int { return self.val }
-
-func Next(self List) List { return self.next }
 ```
 
-### PushFront y PushBack
+`PushFront`, `PushBack`, `Remove` e `Iterate` ya están escritas como métodos con receiver puntero (`*List`), porque necesitan modificar la lista:
 
 ```go
-// PushFront: nuevo nodo al inicio
-func PushFront(self *List, elem int) {
-    *self = &node{val: elem, next: *self}
+func (l *List) PushFront(elem int) {
+    nuevo := &nodo{elem: elem, sig: l.pri}
+    l.pri = nuevo
+    l.len++
 }
 
-// PushBack: recorrer hasta el final y agregar
-func PushBack(self *List, elem int) {
-    nuevo := &node{val: elem}
-    if *self == nil {
-        *self = nuevo
+func (l *List) PushBack(element int) {
+    if IsEmpty(*l) {
+        l.PushFront(element)
         return
     }
-    n := *self
-    for n.next != nil {
-        n = n.next
+    nuevo := &nodo{elem: element}
+    actual := l.pri
+    for actual.sig != nil {
+        actual = actual.sig
     }
-    n.next = nuevo
+    actual.sig = nuevo
+    l.len++
+}
+
+func (l *List) Remove() (int, error) {
+    if l.pri == nil {
+        return 0, errors.New("lista vacia")
+    }
+    valor := l.pri.elem
+    l.pri = l.pri.sig
+    l.len--
+    return valor, nil
 }
 ```
 
-> Para modificar la lista (cambiar qué nodo es el primero), la función necesita recibir `*List` (puntero al puntero).
+`b/main.go` es igual pero con un `main` más completo: recorre con `Next`, prueba `Iterate`, y vacía la lista con `Remove` hasta ver el error de lista vacía.
 
-### Remove y ToString
+## Parte c — diferencias con `container/list`
+
+- Es **doblemente enlazada**: cada elemento tiene `Next()` y `Prev()`, se puede recorrer para atrás. La nuestra es simple, solo para adelante.
+- `PushBack`/`PushFront` devuelven el `*Element` creado. Eso permite guardar una referencia a un nodo puntual y después borrarlo o insertar al lado (`InsertBefore`, `InsertAfter`) sin recorrer nada. La nuestra no expone los nodos: no hay forma de agarrar "el tercer elemento" desde afuera y sacarlo directo, solo `Remove()` del frente.
+- Guarda `any` en vez de `int`, así que una misma lista puede tener tipos mezclados — pero a cambio perdés el chequeo de tipos en compilación: hay que hacer type assertion o mirar `%T` para saber qué hay en cada nodo. La nuestra, al ser solo `int`, no tiene ese problema.
+- Tiene más operaciones ya resueltas (`MoveToFront`, `MoveToBack`, `PushBackList` para unir dos listas), nosotros solo escribimos lo que pedía el enunciado.
+- Para que la propia fuera genérica (aceptar cualquier tipo sin perder el chequeo de tipos) alcanzaría con type parameters de Go 1.18+: `type List[T any] struct { pri *nodo[T]; len int }`.
+
+## Parte d — versión con métodos y errores
+
+`d/main.go` reescribe todo como métodos sobre `List`, sin funciones sueltas, y le agrega manejo de error a las operaciones que antes podían fallar en silencio o hacer panic:
 
 ```go
-func Remove(self *List) int {
-    val := (*self).val
-    *self = (*self).next
-    return val
-}
-
-func ToString(self List) string {
-    s := "["
-    for n := self; n != nil; n = n.next {
-        if n != self { s += " -> " }
-        s += fmt.Sprintf("%d", n.val)
+func (l List) FrontElement() (int, error) {
+    if l.IsEmpty() {
+        return 0, errors.New("lista vacía")
     }
-    return s + "]"
+    return l.pri.elem, nil
 }
-```
 
-### Iterate — aplicar función a cada elemento
-
-```go
-func Iterate(self List, f func(int) int) {
-    for n := self; n != nil; n = n.next {
-        n.val = f(n.val)
+func (l List) Next() (List, error) {
+    if l.IsEmpty() {
+        return List{}, errors.New("lista vacía")
     }
+    return List{pri: l.pri.sig, len: l.len - 1}, nil
 }
 ```
 
-### Versión con métodos (parte d)
+También define `String()` (interfaz Stringer), así que `fmt.Printf("%s", l)` funciona sin llamar a `ToString` a mano.
 
-Definir `List` como struct con puntero al primer nodo y puntero al último (para PushBack en O(1)):
+## ¿Por qué acá se muta con puntero y en el árbol (ej11) se reasigna?
 
-```go
-type List struct {
-    head, tail *node
-    size       int
-}
+Dos formas válidas de resolver "esta operación cambia la estructura":
 
-func (l *List) PushFront(elem int) { ... }
-func (l *List) PushBack(elem int)  { ... }
-func (l *List) IsEmpty() bool       { return l.head == nil }
-```
+- **Acá (List)**: los métodos que modifican reciben `*List` y tocan los campos directamente (`l.pri = nuevo`). Se llama `lista.PushFront(5)` y ya está, no hace falta reasignar nada.
+- **En el árbol (ej11)**: `Add` no muta nada por puntero, devuelve un `arbolBin` nuevo y hay que reasignar (`a = a.Add(5)`). Si te olvidás del `a =`, el insert se pierde en silencio.
 
-> Con métodos, la sintaxis `lista.PushFront(5)` es más natural y el compilador puede hacer type-checking más fino.
+La lista muta por puntero porque tiene sentido pensarla como una caja que cambia con el tiempo (como un slice o un stack). El árbol usa retorno porque `this` se pasa por valor (no por puntero) en toda su interfaz — siguiendo la firma que pide el enunciado (`func (this IntBinTree) Add(elem int) IntBinTree`) — así que la única forma de que el cambio sea visible es devolviendo la versión nueva.
+
+## Observaciones
+
+- En `main.go`/`b`, `FrontElement` no chequea lista vacía: si se llama sobre una lista vacía, `l.pri.elem` explota con nil pointer dereference. Es justo lo que la parte d viene a arreglar devolviendo `error` en vez de dejar que explote.
+- `PushFront` y `PushBack` reciben `*List` porque agregan un nodo y cambian el field `pri` (o `len`); las funciones de solo lectura (`IsEmpty`, `Len`, `FrontElement`, `ToString`) reciben `List` por valor porque no necesitan modificar nada.
+- `PushBack` recorre toda la lista hasta el final (`O(n)`), a diferencia de `PushFront` que es `O(1)`. Si preguntan por eficiencia, ese es el punto a mencionar.

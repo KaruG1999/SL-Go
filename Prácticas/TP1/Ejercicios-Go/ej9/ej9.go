@@ -8,48 +8,45 @@ import (
 	"unicode"
 )
 
-// reemplazarConCasing busca todas las ocurrencias de `original` dentro de
-// `frase` de forma case-insensitive y las reemplaza por `reemplazo`,
-// copiando el patrón de mayúsculas/minúsculas de la ocurrencia encontrada
-// posición a posición.
-//
-// Se trabaja con []rune (y no con bytes) porque en Go un string es una
-// secuencia de bytes UTF-8; caracteres como é, ñ, ó ocupan 2 bytes, por lo
-// que iterar con índice de bytes daría posiciones incorrectas.
-// Al convertir a []rune cada elemento representa un carácter completo.
-//
-// En este ejercicio ambas palabras son ASCII puro ("jueves"/"martes"),
-// así que rune y byte coinciden; pero se usa []rune desde ya para que la
-// función sea reutilizable con palabras acentuadas (ver Obligatorio 1).
+// reemplazarConCasing busca 'original' en 'frase' y la cambia por 'reemplazo' manteniendo el casing.
 func reemplazarConCasing(frase, original, reemplazo string) string {
+	// convertimos a slice de runas (evitamos que se rompa al usar letras con acento)
 	fraseRunes := []rune(frase)
 	origRunes := []rune(strings.ToLower(original))
 	reemplRunes := []rune(strings.ToLower(reemplazo))
-	n := len(origRunes)
-
-	var sb strings.Builder // Builder acumula el resultado sin alocar un string nuevo en cada paso
+	
+	lenOrig := len(origRunes)   // sin runa el len retornaría un byte extra si la frase tiene tilde 
+	var sb strings.Builder      // acumulador de texto ultra eficiente -> strings.Builder escribe directamente sobre un buffer de memoria
 
 	i := 0
 	for i < len(fraseRunes) {
-		// ¿Hay suficientes caracteres por delante para que quepa `original`?
-		if i+n <= len(fraseRunes) {
-			// Comparamos el segmento en minúsculas con la palabra buscada.
-			segmento := strings.ToLower(string(fraseRunes[i : i+n]))
+		// Validar si entra la palabra original en lo que queda de la frase
+		if i+lenOrig <= len(fraseRunes) {
+			segmento := strings.ToLower(string(fraseRunes[i : i+lenOrig]))
+			
 			if segmento == string(origRunes) {
-				// Ocurrencia encontrada: escribir `reemplazo` con el casing
-				// de cada posición de la ocurrencia original.
+
+				// procesa el reemplazo letra por letra (j -> indice y r -> letra)
 				for j, r := range reemplRunes {
-					if unicode.IsUpper(fraseRunes[i+j]) {
+					// Evitamos el index out of range si el reemplazo es más largo
+					// Si j supera el tamaño original, evalúa el casing de la última letra del match
+					idxEvaluar := i + j
+					if j >= lenOrig {
+						idxEvaluar = i + lenOrig - 1 // Para en el índice de la última letra de la palabra original
+					}
+
+					// Acá compara con frase original conirtiendo mayusc y minusc
+					if unicode.IsUpper(fraseRunes[idxEvaluar]) {
 						sb.WriteRune(unicode.ToUpper(r))
 					} else {
 						sb.WriteRune(r)
-					}
+					} 
 				}
-				i += n
+				i += lenOrig // Avanzar el tamaño de la palabra encontrada
 				continue
 			}
 		}
-		// Carácter normal: copiarlo tal cual.
+		// Avanzar un caracter normal si no hubo coincidencia
 		sb.WriteRune(fraseRunes[i])
 		i++
 	}
@@ -57,12 +54,14 @@ func reemplazarConCasing(frase, original, reemplazo string) string {
 }
 
 func main() {
-	// bufio.Scanner lee la línea completa (incluyendo espacios).
-	// fmt.Scan solo lee hasta el primer espacio, lo que partiría la frase.
 	fmt.Print("Ingrese una frase: ")
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Scan()
 	frase := scanner.Text()
 
-	fmt.Println(reemplazarConCasing(frase, "jueves", "martes"))
+	// Ejercicio 9 base [cite: 55]
+	fmt.Println("Resultado Ej 9:", reemplazarConCasing(frase, "jueves", "martes"))
+
+	// Ejercicio Obligatorio 1 (Mismo código, strings con tildes de 2 bytes) 
+	fmt.Println("Resultado Obligatorio 1:", reemplazarConCasing(frase, "miércoles", "automóvil"))
 }

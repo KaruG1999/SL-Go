@@ -32,42 +32,32 @@ go func() {
 // igual para ch2 y ch3
 ```
 
-### Loop con select y detección de cierre
+### Loop con select, poniendo el canal en nil al cerrarse (como está en `main.go`)
 
 ```go
 count1, count2, count3 := 0, 0, 0
-open1, open2, open3 := true, true, true
 
-for open1 || open2 || open3 {
+for ch1 != nil || ch2 != nil || ch3 != nil {
     select {
     case v, ok := <-ch1:
-        if !ok { open1 = false; break }
+        if !ok { ch1 = nil; continue }
         fmt.Println("ch1:", v)
         count1++
     case v, ok := <-ch2:
-        if !ok { open2 = false; break }
+        if !ok { ch2 = nil; continue }
         fmt.Println("ch2:", v)
         count2++
     case v, ok := <-ch3:
-        if !ok { open3 = false; break }
+        if !ok { ch3 = nil; continue }
         fmt.Println("ch3:", v)
         count3++
     }
 }
 
-fmt.Printf("Totales — ch1: %d, ch2: %d, ch3: %d\n", count1, count2, count3)
+fmt.Printf("Totales - ch1: %d, ch2: %d, ch3: %d\n", count1, count2, count3)
 ```
 
-> Cuando un canal cerrado se usa en `select`, la variable `ok` vale `false`. Hay que desactivar ese caso poniendo el canal en `nil` o usando flags booleanos para evitar recibirlo infinitamente.
-
-### Alternativa: poner el canal en nil para excluirlo del select
-
-```go
-case v, ok := <-ch1:
-    if !ok { ch1 = nil; break }
-```
-
-Un canal `nil` en `select` nunca está listo, así que queda excluido automáticamente.
+> Cuando un canal cerrado se usa en `select`, `ok` vale `false`. Poner el canal en `nil` lo excluye por completo del `select` (un canal `nil` nunca está listo). Esto es importante: si solo se usara un flag booleano para cortar el loop *sin* tocar el canal, ese `case` seguiría "ganando" el `select` en cada vuelta — leer de un canal cerrado no bloquea, devuelve el cero del tipo con `ok=false` inmediatamente — y el programa quedaría girando en banda sobre ese canal hasta que los otros dos también cierren. Poniendo `chN = nil` se evita ese busy-spin.
 
 ---
 

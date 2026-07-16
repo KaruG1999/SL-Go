@@ -23,17 +23,13 @@ Implementar una blockchain para una criptomoneda que incluya billeteras para cli
 
 ---
 
-## Lógica de resolución
+## Lógica de resolución (como está en `main.go`)
 
 ### Tipos
 
-```go
-import (
-    "crypto/sha256"
-    "fmt"
-    "time"
-)
+La cadena está resuelta directamente con lista enlazada (parte vi), guardando además un puntero al último nodo:
 
+```go
 type Billetera struct {
     ID       string
     Nombre   string
@@ -41,10 +37,10 @@ type Billetera struct {
 }
 
 type Transaccion struct {
-    Monto    float64
-    EmisorID string
+    Monto      float64
+    EmisorID   string
     ReceptorID string
-    Timestamp time.Time
+    Timestamp  time.Time
 }
 
 type Bloque struct {
@@ -54,9 +50,26 @@ type Bloque struct {
     Timestamp  time.Time
 }
 
-// Versión con slice
+type nodo struct {
+    elem Bloque
+    sig  *nodo
+}
+
 type Blockchain struct {
-    bloques []Bloque
+    pri *nodo
+    ult *nodo // puntero al último bloque, para no recorrer toda la cadena
+    len int
+}
+
+func (bc *Blockchain) pushBack(b Bloque) {
+    nuevo := &nodo{elem: b}
+    if bc.pri == nil {
+        bc.pri = nuevo
+    } else {
+        bc.ult.sig = nuevo
+    }
+    bc.ult = nuevo
+    bc.len++
 }
 ```
 
@@ -64,7 +77,8 @@ type Blockchain struct {
 
 ```go
 func calcularHash(b Bloque) string {
-    datos := fmt.Sprintf("%s%s%v%v", b.HashPrevio, b.Data.EmisorID, b.Data.Monto, b.Timestamp)
+    datos := fmt.Sprintf("%s|%s|%s|%.2f|%v|%v",
+        b.HashPrevio, b.Data.EmisorID, b.Data.ReceptorID, b.Data.Monto, b.Data.Timestamp, b.Timestamp)
     hash := sha256.Sum256([]byte(datos))
     return fmt.Sprintf("%x", hash)
 }
@@ -78,44 +92,57 @@ func NuevaBilletera(id, nombre, apellido string) Billetera {
 }
 ```
 
-### ii y iii) Enviar transacción / Insertar bloque
+### iii) Insertar bloque (helper interno)
 
 ```go
-func (bc *Blockchain) EnviarTransaccion(tx Transaccion) error {
-    // vii) Validar saldo
-    if bc.ObtenerSaldo(tx.EmisorID) < tx.Monto {
-        return fmt.Errorf("saldo insuficiente")
-    }
-
+func (bc *Blockchain) insertarBloque(tx Transaccion) {
     hashPrevio := ""
-    if len(bc.bloques) > 0 {
-        hashPrevio = bc.bloques[len(bc.bloques)-1].Hash
+    if bc.ult != nil {
+        hashPrevio = bc.ult.elem.Hash
     }
-
     nuevo := Bloque{
         HashPrevio: hashPrevio,
         Data:       tx,
         Timestamp:  time.Now(),
     }
     nuevo.Hash = calcularHash(nuevo)
-    bc.bloques = append(bc.bloques, nuevo)
+    bc.pushBack(nuevo)
+}
+```
+
+### ii + vii) Enviar transacción, con validación de saldo
+
+```go
+func (bc *Blockchain) EnviarTransaccion(tx Transaccion) error {
+    if bc.ObtenerSaldo(tx.EmisorID) < tx.Monto {
+        return errors.New("saldo insuficiente")
+    }
+    bc.insertarBloque(tx)
     return nil
+}
+```
+
+`AcuñarFondos` es una función aparte, no pedida explícitamente por el enunciado, que le permite al sistema emitir moneda sin chequear saldo — así se cargan los fondos iniciales de cada billetera (equivalente a un bloque génesis):
+
+```go
+func (bc *Blockchain) AcuñarFondos(receptorID string, monto float64) {
+    bc.insertarBloque(Transaccion{
+        Monto: monto, EmisorID: "SISTEMA", ReceptorID: receptorID, Timestamp: time.Now(),
+    })
 }
 ```
 
 ### iv) Obtener saldo
 
-Recorrer toda la cadena sumando entradas y restando salidas:
-
 ```go
 func (bc *Blockchain) ObtenerSaldo(id string) float64 {
     var saldo float64
-    for _, b := range bc.bloques {
-        if b.Data.ReceptorID == id {
-            saldo += b.Data.Monto
+    for n := bc.pri; n != nil; n = n.sig {
+        if n.elem.Data.ReceptorID == id {
+            saldo += n.elem.Data.Monto
         }
-        if b.Data.EmisorID == id {
-            saldo -= b.Data.Monto
+        if n.elem.Data.EmisorID == id {
+            saldo -= n.elem.Data.Monto
         }
     }
     return saldo
@@ -126,23 +153,22 @@ func (bc *Blockchain) ObtenerSaldo(id string) float64 {
 
 ```go
 func (bc *Blockchain) EsValida() bool {
-    for i := 1; i < len(bc.bloques); i++ {
-        actual  := bc.bloques[i]
-        anterior := bc.bloques[i-1]
-
-        if actual.Hash != calcularHash(actual) {
-            return false   // hash del bloque corrupto
+    var anterior *nodo = nil
+    for n := bc.pri; n != nil; n = n.sig {
+        if n.elem.Hash != calcularHash(n.elem) {
+            return false // el bloque fue alterado
         }
-        if actual.HashPrevio != anterior.Hash {
-            return false   // enlace roto
+        if anterior != nil && n.elem.HashPrevio != anterior.elem.Hash {
+            return false // el enlace con el anterior se rompió
         }
+        anterior = n
     }
     return true
 }
 ```
 
-### vi) Re-implementar con lista enlazada
+## Observaciones
 
-Reemplazar `[]Bloque` por la `List` del ejercicio 9 (adaptada para `Bloque`). El comportamiento es el mismo; el impacto es que `PushBack` es O(1) si la lista guarda puntero al último nodo, pero acceder al último bloque (para obtener `HashPrevio`) sigue siendo O(1) con ese puntero. La iteración para calcular saldo sigue siendo O(n).
-
-> La blockchain funciona como una lista enlazada donde cada nodo conoce el hash del nodo anterior — cualquier modificación en un bloque intermedio invalida todos los posteriores, garantizando la inmutabilidad.
+- **El hash cubre también el timestamp de la transacción:** `calcularHash` incluye tanto `b.Timestamp` (fecha del bloque) como `b.Data.Timestamp` (fecha de la transacción). Al principio faltaba este último, así que alterar solo `Data.Timestamp` de un bloque ya creado no se detectaba en `EsValida()`; ya está corregido.
+- **Por qué `Blockchain` guarda un puntero `ult`:** sin él, para insertar un bloque nuevo (necesitás el hash del último para armar `HashPrevio`) habría que recorrer toda la cadena desde `pri` cada vez. Con `ult`, tanto `pushBack` como leer el hash previo quedan en O(1) en vez de O(n). Es la diferencia concreta entre esta implementación y una lista enlazada "genérica" sin ese puntero extra.
+- **`AcuñarFondos` no está en el enunciado:** se agregó para poder darle saldo inicial a una billetera sin que la validación de saldo suficiente lo bloquee (si no existiera, ninguna billetera podría empezar con dinero, porque toda transacción pasa por `EnviarTransaccion` y esa sí valida saldo).

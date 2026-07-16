@@ -73,9 +73,17 @@ func Len(o OptimumSlice) int {
 
 ### FrontElement y LastElement
 
+Los profesores marcaron en la entrega que no controlaban slice vacío (podían tirar panic de index out of range sin avisar por qué). Ya está corregido con un chequeo explícito:
+
 ```go
-func FrontElement(o OptimumSlice) int { return o[0].valor }
-func LastElement(o OptimumSlice) int  { return o[len(o)-1].valor }
+func FrontElement(o OptimumSlice) int {
+    if IsEmpty(o) { panic("OptimumSlice vacío") }
+    return o[0].valor
+}
+func LastElement(o OptimumSlice) int {
+    if IsEmpty(o) { panic("OptimumSlice vacío") }
+    return o[len(o)-1].valor
+}
 ```
 
 ### Average
@@ -119,17 +127,24 @@ func IndexOf(o OptimumSlice, element int) int {
 
 ### Mode — valor más repetido
 
+Los profesores marcaron que la versión entregada llamaba a `Occurrences(o, r.valor)` por cada nodo, y esa función recorre todo el slice de nuevo — O(n²) en cantidad de nodos. Corregido acumulando todo en una sola pasada con un map, sin volver a recorrer `o`:
+
 ```go
 func Mode(o OptimumSlice) int {
-    best := o[0]
-    for _, r := range o[1:] {
-        if r.ocurrencias > best.ocurrencias {
-            best = r
+    conteo := make(map[int]int)
+    max, mode := 0, 0
+    for _, n := range o {
+        conteo[n.valor] += n.cant
+        if conteo[n.valor] > max {
+            max = conteo[n.valor]
+            mode = n.valor
         }
     }
-    return best.valor
+    return mode
 }
 ```
+
+Esto también corrige un problema que tenía la versión vieja: si un mismo valor aparece en dos runs no contiguos (por ejemplo `{3,3} {1,2} {5,3} {3,2}`, donde el 3 suma 5 en total repartido en dos bloques), hay que sumar sus ocurrencias entre todos los nodos, no compararlos nodo por nodo.
 
 ### Insert — la operación más compleja
 

@@ -13,67 +13,35 @@ func Avg(a []int) int        // retorna el promedio entero de los elementos
 
 ---
 
-## Lógica de resolución
-
-### Sum
+## Lógica de resolución (como está en `main.go`)
 
 ```go
-func Sum(a, b []int) []int {
-    n := len(a)
-    if len(b) < n {
-        n = len(b)
+func Sum(s1, s2 []int) []int {
+    n := len(s1)
+    if len(s2) < n {
+        n = len(s2)
     }
-    result := make([]int, n)
+    res := make([]int, n)
     for i := 0; i < n; i++ {
-        result[i] = a[i] + b[i]
+        res[i] = s1[i] + s2[i]
     }
-    return result
+    return res
 }
-```
 
-> `make([]int, n)` crea un slice de longitud `n` con todos los elementos en 0. Los slices son referencias en Go: la función puede retornar un slice recién creado sin problemas.
-
-### Avg — versión entera
-
-```go
-func Avg(a []int) int {
-    if len(a) == 0 {
+func Prom(s []int) float64 {
+    if len(s) == 0 {
         return 0
     }
-    total := 0
-    for _, v := range a {
-        total += v
+    suma := 0
+    for _, v := range s {
+        suma += v
     }
-    return total / len(a)
+    return float64(suma) / float64(len(s))
 }
 ```
 
-### Avg — versión float (parte a)
+## Observaciones
 
-```go
-func AvgFloat(a []int) float64 {
-    if len(a) == 0 {
-        return 0.0
-    }
-    total := 0
-    for _, v := range a {
-        total += v
-    }
-    return float64(total) / float64(len(a))
-}
-```
-
-### Uso
-
-```go
-func main() {
-    a := []int{1, 2, 3, 4, 5}
-    b := []int{10, 20, 30}
-
-    fmt.Println("Sum:", Sum(a, b))       // [11 22 33]
-    fmt.Println("Avg:", Avg(a))          // 3
-    fmt.Println("AvgFloat:", AvgFloat(a)) // 3.0
-}
-```
-
-> Los slices en Go no tienen tamaño fijo (a diferencia de los arreglos). Se pasan como referencias al header del slice (puntero + len + cap), por lo que las funciones ven los mismos datos sin copiarlos.
+- La función quedó directamente como `Prom` devolviendo `float64` (la parte a del enunciado). No está la versión base que pide `Avg` devolviendo `int` — si preguntan por esa, es la misma cuenta pero con `suma / len(s)` en enteros (trunca en vez de redondear).
+- `make([]int, n)` crea el slice del tamaño del resultado ya en 0, sin necesidad de un `append` en el loop.
+- `Sum` no valida que los slices tengan al menos un elemento: si ambos vienen vacíos, `n` es 0 y devuelve un slice vacío sin problema, no hace panic.

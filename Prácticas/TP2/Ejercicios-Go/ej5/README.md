@@ -14,66 +14,37 @@ func SumInPlace(v1, v2 Vector)
 
 ---
 
-## Lógica de resolución
-
-### Tipo
+## Lógica de resolución (como está en `main.go`)
 
 ```go
-const SIZE = 5
+const N = 3
+type Vector [N]float64
 
-type Vector [SIZE]float64
-```
-
-### Initialize
-
-```go
 func Initialize(v *Vector, f float64) {
-    for i := range v {
+    for i := 0; i < N; i++ {
         v[i] = f
     }
 }
-```
 
-> En Go, los arreglos se pasan **por valor** (se copian). Para modificar el original desde dentro de la función se necesita un **puntero** `*Vector`. Sin el puntero, los cambios no se reflejan en el caller.
-
-### Sum — retorna un nuevo vector
-
-```go
+// Retorna un vector nuevo, los originales no cambian
 func Sum(v1, v2 Vector) Vector {
-    var result Vector
-    for i := range v1 {
-        result[i] = v1[i] + v2[i]
+    var v Vector
+    for i := 0; i < N; i++ {
+        v[i] = v1[i] + v2[i]
     }
-    return result
+    return v
 }
-```
 
-Acá los arreglos se pasan por valor (copias). La función trabaja sobre copias y retorna un nuevo arreglo.
-
-### SumInPlace — modifica el primer vector
-
-```go
+// El resultado se guarda en v1 (pasaje por referencia con *)
 func SumInPlace(v1 *Vector, v2 Vector) {
-    for i := range v1 {
-        v1[i] += v2[i]
+    for i := 0; i < N; i++ {
+        v1[i] = v1[i] + v2[i]
     }
 }
 ```
 
-### Uso
+## Observaciones
 
-```go
-func main() {
-    var a, b Vector
-    Initialize(&a, 1.0)
-    Initialize(&b, 2.0)
-
-    c := Sum(a, b)
-    fmt.Println("Sum:", c)
-
-    SumInPlace(&a, b)
-    fmt.Println("SumInPlace a:", a)
-}
-```
-
-> La diferencia clave entre `Sum` y `SumInPlace` es **semántica de propiedad**: `Sum` es pura (no modifica nada), `SumInPlace` muta el primer argumento. Para mutar, se pasa puntero.
+- Los arreglos en Go se pasan por valor (se copian). Por eso `Initialize` y `SumInPlace` necesitan `*Vector`: sin el puntero, los cambios quedarían en una copia local y no se verían afuera.
+- `Sum` en cambio recibe todo por valor a propósito: no toca ni `v1` ni `v2`, arma un `Vector` nuevo y lo devuelve. Por eso no necesita puntero.
+- `N` es una constante y `Vector` un arreglo (no slice), así que el tamaño queda fijo en tiempo de compilación — no se puede tener un Vector de tamaño variable con este tipo.

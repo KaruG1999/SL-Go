@@ -1,0 +1,14 @@
+## Enunciado
+
+**Obligatorio 1.** Realice las modificaciones necesarias al ejercicio anterior para que en lugar de reemplazar la palabra "jueves" por "martes" ahora se reemplace "miércoles" por "automóvil". Piense qué impacto tuvieron esas modificaciones en el programa que había realizado.
+
+## Observaciones
+
+- El código es el mismo del ejercicio 9, no hace falta tocar la función: al estar escrita con `[]rune` desde el principio ya soporta caracteres acentuados.
+- "miércoles" y "automóvil" tienen 9 runes cada una, pero más bytes que caracteres por las tildes (é y ó ocupan 2 bytes en UTF-8). Si se indexara por bytes en vez de runes, esto rompería el reemplazo.
+- El impacto real de este ejercicio es justamente notar que no hubo que cambiar nada del algoritmo — es la prueba de que trabajar con `[]rune` era la decisión correcta desde el ejercicio 9.
+- **Seguridad ante desbordamientos (Index Out of Range):** La asignación de `idxEvaluar` mediante la condición `if j >= lenOrig` previene un *runtime panic* si la palabra de reemplazo es más larga que la original (por ejemplo, al cambiar una palabra de 3 letras por una de 6). El algoritmo se "clava" de forma segura en el casing del último carácter de la palabra original de la frase sin intentar leer posiciones de memoria inexistentes.
+- **Inmutabilidad de Strings y Performance:** Se utiliza `strings.Builder` en lugar de concatenación tradicional con el operador `+`. Dado que los strings en Go son inmutables, concatenar en un bucle forzaría al Garbage Collector (GC) a realizar alocaciones constantes en el *heap*. El builder utiliza un buffer interno dinámico, reduciendo drásticamente el consumo de memoria.
+- **Incompatibilidad Estricta de Tipos:** Go no permite comparar directamente un slice de runas (`[]rune`) contra otro mediante el operador `==`, ni tampoco permite pasar runas a funciones como `strings.ToLower`. Por ello, se realizan conversiones explícitas a `string` únicamente en los puntos críticos de comparación y normalización.
+- **Uso del Paquete `unicode`:** Se delega la inspección física del casing (`unicode.IsUpper`) y la transformación de caracteres (`unicode.ToUpper`) a la librería estándar de Go para garantizar compatibilidad absoluta con el estándar Unicode (manejando correctamente mayúsculas y minúsculas de caracteres con tilde, diéresis o caracteres especiales de otros idiomas).
+- **Lectura Robusta de la Entrada:** Se implementa `bufio.NewScanner` en lugar de `fmt.Scan`. Esto es obligatorio debido a que `fmt.Scan` interrumpe la lectura al encontrar el primer espacio en blanco, lo que fragmentaría la frase ingresada por el usuario. El scanner captura la línea completa hasta el carácter de nueva línea (`\n`).

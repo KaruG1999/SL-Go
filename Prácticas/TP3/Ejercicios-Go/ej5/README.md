@@ -49,30 +49,34 @@ Las goroutines de PING y PONG compiten por el canal. El orden de llegada es no d
 Usar dos canales separados (`ping` y `pong`) y hacer que cada goroutine espere la señal del otro antes de enviar:
 
 ```go
-func ping(ping chan struct{}, pong chan struct{}) {
+func ping(pingCh chan struct{}, pongCh chan struct{}) {
     for i := 0; i < 4; i++ {
-        <-ping               // esperar turno
+        <-pingCh             // espera la ficha para jugar
         fmt.Println("PING")
-        pong <- struct{}{}   // ceder turno a PONG
+        pongCh <- struct{}{} // le pasa la ficha a PONG
     }
 }
 
-func pong(ping chan struct{}, pong chan struct{}) {
+func pong(pingCh chan struct{}, pongCh chan struct{}, done chan bool) {
     for i := 0; i < 4; i++ {
-        <-pong               // esperar turno
+        <-pongCh             // espera la ficha para jugar
         fmt.Println("PONG")
-        ping <- struct{}{}   // ceder turno a PING
+        pingCh <- struct{}{} // le devuelve la ficha a PING
     }
+    done <- true // avisa al main que el juego terminó
 }
 
 func main() {
     pingCh := make(chan struct{}, 1)
     pongCh := make(chan struct{})
-    pingCh <- struct{}{} // PING arranca primero
     done := make(chan bool)
+
+    pingCh <- struct{}{} // se mete la primera ficha para que arranque PING
+
     go ping(pingCh, pongCh)
-    go func() { pong(pingCh, pongCh); done <- true }()
-    <-done
+    go pong(pingCh, pongCh, done)
+
+    <-done // el main espera acá hasta que pong avise que terminó
 }
 ```
 

@@ -8,41 +8,45 @@ import (
 	"unicode"
 )
 
-// reemplazarConCasing es la misma función del Ejercicio 9, reutilizable
-// para cualquier par de palabras.
-//
-// Impacto de pasar de "jueves"/"martes" a "miércoles"/"automóvil":
-//   - Ambas palabras tienen 9 runes ("miércoles": m-i-é-r-c-o-l-e-s,
-//     "automóvil": a-u-t-o-m-ó-v-i-l), así que el reemplazo posición
-//     a posición sigue siendo válido.
-//   - La diferencia es que ahora los strings tienen bytes extra por las
-//     tildes (é = 2 bytes, ó = 2 bytes). Si usáramos índice de bytes,
-//     len("miércoles") == 11 (bytes) pero tiene 9 caracteres reales.
-//     Por eso es imprescindible trabajar con []rune.
+// reemplazarConCasing busca 'original' en 'frase' y la cambia por 'reemplazo' manteniendo el casing.
 func reemplazarConCasing(frase, original, reemplazo string) string {
+	// convertimos a slice de runas (evitamos que se rompa al usar letras con acento)
 	fraseRunes := []rune(frase)
 	origRunes := []rune(strings.ToLower(original))
 	reemplRunes := []rune(strings.ToLower(reemplazo))
-	n := len(origRunes)
-
-	var sb strings.Builder
+	
+	lenOrig := len(origRunes)   // sin runa el len retornaría un byte extra si la frase tiene tilde 
+	var sb strings.Builder      // acumulador de texto ultra eficiente -> strings.Builder escribe directamente sobre un buffer de memoria
 
 	i := 0
 	for i < len(fraseRunes) {
-		if i+n <= len(fraseRunes) {
-			segmento := strings.ToLower(string(fraseRunes[i : i+n]))
+		// Validar si entra la palabra original en lo que queda de la frase
+		if i+lenOrig <= len(fraseRunes) {
+			segmento := strings.ToLower(string(fraseRunes[i : i+lenOrig]))
+			
 			if segmento == string(origRunes) {
+
+				// procesa el reemplazo letra por letra (j -> indice y r -> letra)
 				for j, r := range reemplRunes {
-					if unicode.IsUpper(fraseRunes[i+j]) {
+					// Evitamos el index out of range si el reemplazo es más largo
+					// Si j supera el tamaño original, evalúa el casing de la última letra del match
+					idxEvaluar := i + j
+					if j >= lenOrig {
+						idxEvaluar = i + lenOrig - 1 // Para en el índice de la última letra de la palabra original
+					}
+
+					// Acá compara con frase original conirtiendo mayusc y minusc
+					if unicode.IsUpper(fraseRunes[idxEvaluar]) {
 						sb.WriteRune(unicode.ToUpper(r))
 					} else {
 						sb.WriteRune(r)
-					}
+					} 
 				}
-				i += n
+				i += lenOrig // Avanzar el tamaño de la palabra encontrada
 				continue
 			}
 		}
+		// Avanzar un caracter normal si no hubo coincidencia
 		sb.WriteRune(fraseRunes[i])
 		i++
 	}
@@ -55,5 +59,6 @@ func main() {
 	scanner.Scan()
 	frase := scanner.Text()
 
-	fmt.Println(reemplazarConCasing(frase, "miércoles", "automóvil"))
+	// Mismo código ej 9 -> strings con tildes de 2 bytes 
+	fmt.Println("Resultado Obligatorio 1:", reemplazarConCasing(frase, "miércoles", "automóvil"))
 }

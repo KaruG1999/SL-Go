@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// ── Tipos de dominio ──────────────────────────────────────────────────────────
+//  Tipos de dominio 
 
 type Billetera struct {
 	ID       string
@@ -29,8 +29,8 @@ type Bloque struct {
 	Timestamp  time.Time
 }
 
-// ── Lista enlazada de Bloque (vi: reemplaza al slice) ─────────────────────────
-// Guardamos puntero al último nodo para que PushBack sea O(1).
+//  Lista enlazada de Bloques (slice requiere reasignar memoria y copiar los elementos viejos) 
+// Guardamos puntero al último nodo para que agregar al final sea O(1)
 
 type nodo struct {
 	elem Bloque
@@ -54,22 +54,24 @@ func (bc *Blockchain) pushBack(b Bloque) {
 	bc.len++
 }
 
-// ── i) Crear billetera ────────────────────────────────────────────────────────
+//  Crear billetera
 
 func NuevaBilletera(id, nombre, apellido string) Billetera {
 	return Billetera{ID: id, Nombre: nombre, Apellido: apellido}
 }
 
-// ── Hash ──────────────────────────────────────────────────────────────────────
+// Hash 
 
 func calcularHash(b Bloque) string {
-	datos := fmt.Sprintf("%s|%s|%s|%.2f|%v",
-		b.HashPrevio, b.Data.EmisorID, b.Data.ReceptorID, b.Data.Monto, b.Timestamp)
+	datos := fmt.Sprintf("%s|%s|%s|%.2f|%v|%v",
+		b.HashPrevio, b.Data.EmisorID, b.Data.ReceptorID, b.Data.Monto, b.Data.Timestamp, b.Timestamp)
+
+	// Los algoritmos criptográficos como SHA-256 operan a nivel de bits y bytes 
 	hash := sha256.Sum256([]byte(datos))
 	return fmt.Sprintf("%x", hash)
 }
 
-// ── iv) Obtener saldo ─────────────────────────────────────────────────────────
+//  Obtener saldo 
 
 func (bc *Blockchain) ObtenerSaldo(id string) float64 {
 	var saldo float64
@@ -84,7 +86,7 @@ func (bc *Blockchain) ObtenerSaldo(id string) float64 {
 	return saldo
 }
 
-// ── insertar bloque interno ───────────────────────────────────────────────────
+// insertar bloque interno (Transaccion)
 
 func (bc *Blockchain) insertarBloque(tx Transaccion) {
 	hashPrevio := ""
@@ -100,10 +102,10 @@ func (bc *Blockchain) insertarBloque(tx Transaccion) {
 	bc.pushBack(nuevo)
 }
 
-// ── ii+iii) Enviar transacción (con validación de saldo) ─────────────────────
+// Enviar transacción 
 
 func (bc *Blockchain) EnviarTransaccion(tx Transaccion) error {
-	// vii) validar saldo suficiente
+	// validar saldo suficiente
 	if bc.ObtenerSaldo(tx.EmisorID) < tx.Monto {
 		return errors.New("saldo insuficiente")
 	}
@@ -111,8 +113,8 @@ func (bc *Blockchain) EnviarTransaccion(tx Transaccion) error {
 	return nil
 }
 
-// AcuñarFondos permite al sistema emitir moneda sin validación de saldo.
-// Representa el bloque génesis o depósito inicial del banco.
+// Fondea wallet
+// Representa el bloque génesis o depósito inicial del banco
 func (bc *Blockchain) AcuñarFondos(receptorID string, monto float64) {
 	bc.insertarBloque(Transaccion{
 		Monto:      monto,
@@ -122,7 +124,7 @@ func (bc *Blockchain) AcuñarFondos(receptorID string, monto float64) {
 	})
 }
 
-// ── v) Validar consistencia de la cadena ─────────────────────────────────────
+// Validar consistencia de la cadena 
 
 func (bc *Blockchain) EsValida() bool {
 	var anterior *nodo = nil
@@ -140,7 +142,7 @@ func (bc *Blockchain) EsValida() bool {
 	return true
 }
 
-// ── Utilidades de impresión ───────────────────────────────────────────────────
+// Utilidades de impresión 
 
 func (bc *Blockchain) Imprimir() {
 	fmt.Printf("Blockchain (%d bloques):\n", bc.len)
@@ -153,16 +155,15 @@ func (bc *Blockchain) Imprimir() {
 	}
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
 
 func main() {
-	// i) crear billeteras
+	// crear billeteras
 	alice := NuevaBilletera("alice", "Alice", "Smith")
 	bob := NuevaBilletera("bob", "Bob", "Jones")
 
 	bc := Blockchain{}
 
-	// Fondos iniciales: el sistema acuña moneda para cada billetera
+	// Fondos iniciales -> el sistema fondea cada billetera
 	fmt.Println("=== Cargando fondos iniciales ===")
 	bc.AcuñarFondos(alice.ID, 1000)
 	fmt.Printf("Fondos a %s: $1000\n", alice.Nombre)
@@ -188,7 +189,7 @@ func main() {
 	fmt.Println("=== Validación ===")
 	fmt.Printf("Cadena válida: %v\n", bc.EsValida())
 
-	// Tamperear un bloque para probar que la validación lo detecta
+	// Si cambio un dato de Alice y la cadena deja de ser valida
 	bc.pri.elem.Data.Monto = 9999
-	fmt.Printf("Cadena válida tras tampereo: %v\n", bc.EsValida())
+	fmt.Printf("Cadena válida tras hackeo: %v\n", bc.EsValida())
 }

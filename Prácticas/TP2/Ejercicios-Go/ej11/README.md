@@ -22,119 +22,106 @@ func (this IntBinTree) String() string
 
 ---
 
-## Lógica de resolución
-
-### Tipos
+## Lógica de resolución (package `mi_arbol`, `arbol.go`)
 
 ```go
+type nodoArbol struct {
+    elem   int
+    HI, HD *nodoArbol
+}
+
+type arbolBin struct {
+    raiz *nodoArbol
+    len  int // cuenta de nodos, se mantiene aparte para que Len() sea O(1)
+}
+
 type Order int
 const (
-    InOrder Order = iota   // izquierda → raíz → derecha
-    PreOrder               // raíz → izquierda → derecha
-    PostOrder              // izquierda → derecha → raíz
+    PreOrder Order = iota
+    InOrder
+    PostOrder
 )
 
-type treeNode struct {
-    val         int
-    left, right *treeNode
-}
+func New() arbolBin { return arbolBin{} }
 
-// IntBinTree es un puntero al nodo raíz; nil = árbol vacío
-type IntBinTree *treeNode
+func (this arbolBin) IsEmpty() bool { return this.raiz == nil }
+func (this arbolBin) GetElem() int  { return this.raiz.elem }
+func (this arbolBin) Len() int      { return this.len }
 ```
 
-### Operaciones básicas
+### Add — inserción de ABB con doble puntero
 
 ```go
-func New() IntBinTree { return nil }
-
-func (t IntBinTree) IsEmpty() bool  { return t == nil }
-func (t IntBinTree) GetElem() int   { return t.val }
-func (t IntBinTree) GetLeft() IntBinTree  { return IntBinTree(t.left) }
-func (t IntBinTree) GetRight() IntBinTree { return IntBinTree(t.right) }
-```
-
-### Add — árbol binario de búsqueda
-
-```go
-func (t IntBinTree) Add(elem int) IntBinTree {
-    if t == nil {
-        return &treeNode{val: elem}
+func agregarNodo(ptr **nodoArbol, elem int) bool {
+    if *ptr == nil {
+        *ptr = &nodoArbol{elem: elem}
+        return true
     }
-    if elem <= t.val {
-        t.left = t.Add(elem)   // no, espera: ver abajo
-    } else {
-        t.right = t.Add(elem)
+    if elem < (*ptr).elem {
+        return agregarNodo(&(*ptr).HI, elem)
+    } else if elem > (*ptr).elem {
+        return agregarNodo(&(*ptr).HD, elem)
     }
-    return t
+    return false // ya existe, no se inserta
+}
+
+func (this arbolBin) Add(elem int) arbolBin {
+    if agregarNodo(&this.raiz, elem) {
+        this.len++
+    }
+    return this
 }
 ```
 
-> Ojo: `t` es un puntero, así que `t.left = ...` modifica el nodo. La función retorna el árbol (necesario para el caso raíz nil).
+El `**nodoArbol` permite reasignar directamente el puntero del nodo padre (`HI` o `HD`) sin tener que devolver el subárbol modificado y reengancharlo a mano. Si el elemento ya está en el árbol, no se agrega y `len` no se incrementa.
 
-### Len y Depth
-
-```go
-func (t IntBinTree) Len() int {
-    if t == nil { return 0 }
-    return 1 + t.GetLeft().Len() + t.GetRight().Len()
-}
-
-func (t IntBinTree) Depth() int {
-    if t == nil { return 0 }
-    l, r := t.GetLeft().Depth(), t.GetRight().Depth()
-    if l > r { return 1 + l }
-    return 1 + r
-}
-```
-
-### Traverse — recorrido según orden
+### Depth, Traverse, Apply, Find — recursión sobre `*nodoArbol`
 
 ```go
-func (t IntBinTree) Traverse(fp func(int), o Order) {
-    if t == nil { return }
+func calcularProf(n *nodoArbol) int {
+    if n == nil { return 0 }
+    profIzq, profDer := calcularProf(n.HI), calcularProf(n.HD)
+    if profIzq > profDer { return profIzq + 1 }
+    return profDer + 1
+}
+
+func traverseRec(n *nodoArbol, fp func(int), o Order) {
+    if n == nil { return }
     switch o {
     case PreOrder:
-        fp(t.val); t.GetLeft().Traverse(fp, o); t.GetRight().Traverse(fp, o)
+        fp(n.elem); traverseRec(n.HI, fp, o); traverseRec(n.HD, fp, o)
     case InOrder:
-        t.GetLeft().Traverse(fp, o); fp(t.val); t.GetRight().Traverse(fp, o)
+        traverseRec(n.HI, fp, o); fp(n.elem); traverseRec(n.HD, fp, o)
     case PostOrder:
-        t.GetLeft().Traverse(fp, o); t.GetRight().Traverse(fp, o); fp(t.val)
+        traverseRec(n.HI, fp, o); traverseRec(n.HD, fp, o); fp(n.elem)
     }
 }
 ```
 
-### Apply, Includes, Find
+`Traverse`, `Apply` y `Find` son wrappers finitos que llaman a su versión recursiva pasando `this.raiz`.
+
+### Includes — aprovecha que es un ABB
 
 ```go
-func (t IntBinTree) Apply(fp func(int) int) {
-    if t == nil { return }
-    t.val = fp(t.val)
-    t.GetLeft().Apply(fp); t.GetRight().Apply(fp)
-}
-
-func (t IntBinTree) Includes(elem int) bool {
-    if t == nil { return false }
-    if t.val == elem { return true }
-    return t.GetLeft().Includes(elem) || t.GetRight().Includes(elem)
-}
-
-func (t IntBinTree) Find(fp func(int) bool) bool {
-    if t == nil { return false }
-    if fp(t.val) { return true }
-    return t.GetLeft().Find(fp) || t.GetRight().Find(fp)
+func (this arbolBin) Includes(elem int) bool {
+    n := this.raiz
+    for n != nil {
+        if elem == n.elem {
+            return true
+        } else if elem < n.elem {
+            n = n.HI
+        } else {
+            n = n.HD
+        }
+    }
+    return false
 }
 ```
 
-### String
+No recorre todo el árbol como haría un `Find` genérico: al ser árbol de búsqueda, en cada nodo descarta la mitad, así que es O(log n) en vez de O(n) (si el árbol está razonablemente balanceado).
 
-```go
-func (t IntBinTree) String() string {
-    if t == nil { return "[]" }
-    var elems []string
-    t.Traverse(func(v int) {
-        elems = append(elems, fmt.Sprintf("%d", v))
-    }, InOrder)
-    return "[" + strings.Join(elems, " ") + "]"
-}
-```
+## Observaciones
+
+- `Len()` no cuenta nodos recorriendo el árbol cada vez, se mantiene como contador (`len`) que se actualiza en `Add`. Cuidado si preguntan por esto: cualquier otra forma de insertar nodos que no pase por `Add` rompería el contador.
+- `Add` sobre un elemento repetido no lo agrega y devuelve el árbol sin cambios — se ve probado en `main.go` con `a.Add(5)` después de ya haberlo insertado.
+- `Includes` es más rápido que recorrer todo con `Find` porque usa el orden del ABB para descartar la mitad del árbol en cada paso; `Find` en cambio sirve para cualquier condición arbitraria y sí tiene que mirar todos los nodos en el peor caso.

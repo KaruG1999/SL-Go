@@ -19,64 +19,74 @@ type CmpBinTree[T cmp.Ordered] struct {
 
 ---
 
-## Lógica de resolución
+## Lógica de resolución (paquete `tree`, como está en `tree.go`)
+
+Es el árbol binario del TP2 (`ej11`), con el mismo diseño (contador `len` aparte, `agregarNodo` con doble puntero), pero con `[T cmp.Ordered]` en vez de `int` hardcodeado.
 
 ### Constraint `cmp.Ordered`
 
-`cmp.Ordered` (del paquete `cmp`, disponible desde Go 1.21) incluye todos los tipos ordenables: enteros, flotantes y strings. Permite usar `<`, `>`, `==` directamente sobre `T`.
+`cmp.Ordered` (paquete `cmp`, desde Go 1.21) incluye todos los tipos ordenables: enteros, flotantes y strings. Permite usar `<`, `>`, `==` directamente sobre `T`.
 
 ```go
-import "cmp"
-```
-
-### Insert (BST)
-
-```go
-func insert[T cmp.Ordered](n *NodeCmpBinTree[T], val T) *NodeCmpBinTree[T] {
-    if n == nil {
-        return &NodeCmpBinTree[T]{elem: val}
-    }
-    if val < n.elem {
-        n.left = insert(n.left, val)
-    } else if val > n.elem {
-        n.right = insert(n.right, val)
-    }
-    return n
+type nodoArbol[T cmp.Ordered] struct {
+    elem T
+    HI   *nodoArbol[T]
+    HD   *nodoArbol[T]
 }
 
-func (t *CmpBinTree[T]) Insert(val T) {
-    t.tree = insert(t.tree, val)
+type ArbolBin[T cmp.Ordered] struct {
+    raiz *nodoArbol[T]
+    len  int
+}
+
+func New[T cmp.Ordered]() ArbolBin[T] {
+    return ArbolBin[T]{}
 }
 ```
 
-### Search
+### Add — inserción de ABB, misma idea que en TP2 pero genérica
 
 ```go
-func (t *CmpBinTree[T]) Search(val T) bool {
-    curr := t.tree
-    for curr != nil {
-        switch {
-        case val == curr.elem: return true
-        case val < curr.elem:  curr = curr.left
-        default:               curr = curr.right
+func agregarNodo[T cmp.Ordered](ptr **nodoArbol[T], elem T) bool {
+    if *ptr == nil {
+        *ptr = &nodoArbol[T]{elem: elem}
+        return true
+    }
+    if elem < (*ptr).elem {
+        return agregarNodo(&(*ptr).HI, elem)
+    } else if elem > (*ptr).elem {
+        return agregarNodo(&(*ptr).HD, elem)
+    }
+    return false
+}
+
+func (this ArbolBin[T]) Add(elem T) ArbolBin[T] {
+    if agregarNodo(&this.raiz, elem) {
+        this.len++
+    }
+    return this
+}
+```
+
+### Includes — aprovecha el orden del ABB, igual que en TP2
+
+```go
+func (this ArbolBin[T]) Includes(elem T) bool {
+    n := this.raiz
+    for n != nil {
+        if elem == n.elem {
+            return true
+        } else if elem < n.elem {
+            n = n.HI
+        } else {
+            n = n.HD
         }
     }
     return false
 }
 ```
 
-### Recorrido inorder (imprime ordenado)
-
-```go
-func inorder[T cmp.Ordered](n *NodeCmpBinTree[T]) {
-    if n == nil { return }
-    inorder(n.left)
-    fmt.Println(n.elem)
-    inorder(n.right)
-}
-```
-
-> La misma implementación sirve para `CmpBinTree[int]`, `CmpBinTree[float64]` o `CmpBinTree[string]` sin cambios.
+> `New[int]()`, `New[string]()` — el mismo código sirve para cualquier tipo que soporte `<` y `>`, sin reescribir nada. En `main.go` se prueba con un árbol de `int` y uno de `string`.
 
 ---
 

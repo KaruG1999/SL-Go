@@ -31,6 +31,7 @@ func Prom (s []int) float64 {
 
 
 func main () {
+	// creo el slice  
 	s1 := []int{1,2,3,4,5}
 	s2 := []int{10,20,30}
 

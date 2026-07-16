@@ -19,66 +19,59 @@ func Iterate(s Stack, f func(int) int)
 
 ---
 
-## Lógica de resolución
-
-### Tipo
+## Lógica de resolución (`main.go`)
 
 ```go
-type Stack []int
-```
-
-Un slice de enteros es suficiente para implementar una pila. El **tope** de la pila es el **último elemento** del slice.
-
-### Operaciones con slice
-
-```go
-func New() Stack { return Stack{} }
-
-func IsEmpty(s Stack) bool { return len(s) == 0 }
-
-func Len(s Stack) int { return len(s) }
-
-func FrontElement(s Stack) int {
-    if IsEmpty(s) { panic("pila vacía") }
-    return s[len(s)-1]
+type Stack struct {
+    data []int
 }
 
-func Push(s *Stack, element int) {
-    *s = append(*s, element)
-}
+func New() Stack { return Stack{data: []int{}} }
 
-func Pop(s *Stack) int {
-    if IsEmpty(*s) { panic("pila vacía") }
-    top := (*s)[len(*s)-1]
-    *s = (*s)[:len(*s)-1]
-    return top
-}
+func (s Stack) IsEmpty() bool { return len(s.data) == 0 }
+func (s Stack) Len() int      { return len(s.data) }
 
-func ToString(s Stack) string {
-    return fmt.Sprintf("%v", []int(s))
-}
-
-func Iterate(s Stack, f func(int) int) {
-    for i := range s {
-        s[i] = f(s[i])
+func (s Stack) Top() (int, error) {
+    if s.IsEmpty() {
+        return 0, errors.New("pila vacia")
     }
+    return s.data[len(s.data)-1], nil
+}
+
+func (s *Stack) Push(element int) {
+    s.data = append(s.data, element)
+}
+
+func (s *Stack) Pop() (int, error) {
+    if s.IsEmpty() {
+        return 0, errors.New("Pila vacia")
+    }
+    top := s.data[len(s.data)-1]
+    s.data = s.data[:len(s.data)-1]
+    return top, nil
 }
 ```
 
-> `Push` y `Pop` reciben `*Stack` porque modifican el slice subyacente (cambian su longitud). `append` puede reubicar el slice en memoria si la capacidad es insuficiente, por lo que hay que actualizar el puntero en el caller.
+El tope de la pila es el último elemento del slice. `String()` implementa Stringer imprimiendo desde el tope hacia el fondo.
 
-### Re-implementación con Lista (parte b)
+## Parte b — con la lista del ejercicio 9
 
-Usar la `List` del ejercicio 9 como backing store:
+`b/main.go` reutiliza la `List` (versión con métodos y errores, la del ej9 parte d) como backing store en vez de un slice:
 
 ```go
 type Stack struct {
     data List
 }
 
-func (s *Stack) Push(elem int) { PushFront(&s.data, elem) }
-func (s *Stack) Pop() int      { return Remove(&s.data) }
-func (s *Stack) Top() int      { return FrontElement(s.data) }
+func (s *Stack) Push(element int) { s.data.PushFront(element) }
+func (s *Stack) Pop() (int, error) { return s.data.Remove() }
+func (s Stack) Top() (int, error)  { return s.data.FrontElement() }
 ```
 
-> Tanto el tope de la pila como el frente de la lista son la misma posición, lo que hace que Push y Pop sean O(1).
+Push equivale a PushFront y Pop a Remove: el tope de la pila y el frente de la lista son la misma posición, así que ambas operaciones quedan en O(1).
+
+## Observaciones
+
+- `Push` y `Pop` necesitan receiver puntero (`*Stack`) porque `append` puede reasignar el slice interno si no entra en la capacidad actual; sin el puntero ese cambio se perdería al salir de la función.
+- A diferencia de la versión con slice, la versión con lista (parte b) no tiene ese problema de reubicación en memoria, porque cada nodo se reserva por separado.
+- Tanto `Top` como `Pop` devuelven `error` en vez de hacer panic en pila vacía — ya viene con el mismo criterio que se usó en el ej9 parte d.

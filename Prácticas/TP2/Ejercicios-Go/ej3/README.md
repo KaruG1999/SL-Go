@@ -113,4 +113,16 @@ func leer() PuntoCardinal {
 }
 ```
 
-> **Parte f:** si la función recibe un valor fuera de rango (e.g., `PuntoCardinal(99)`), el switch no lo cubre y el default hace panic; el map devuelve el zero value (0 = N); la función de orden produce un resultado incorrecto. Conviene siempre validar la entrada.
+## Observaciones
+
+- `iota` genera enteros consecutivos arrancando en 0 dentro de un bloque `const`. Es lo que arma el enumerativo sin escribir cada número a mano.
+- Los tres enfoques (switch, paridad, map) resuelven lo mismo, cambia qué tan fácil es mantenerlos:
+  - **switch**: el más claro de leer. Si cambia el enum hay que tocar cada `case` a mano.
+  - **paridad (`p%2`)**: funciona porque los opuestos quedan en pares consecutivos (N-S, E-O, NE-SO, NO-SE). Una sola cuenta, pero si alguien reordena las constantes del `const`, se rompe en silencio.
+  - **map**: el más fácil de mantener. Si agregás o cambiás direcciones, solo tocás el map.
+- Qué pasa con un valor fuera de rango (ej: `PuntoCardinal(99)`) depende del enfoque:
+  - switch: cae en `default`, que en nuestro código devuelve `-1` (no explota, pero tampoco es una dirección válida).
+  - paridad: no valida nada, hace la cuenta igual y devuelve cualquier cosa.
+  - map: al no existir la clave, devuelve el zero value del tipo (`N`, porque `N = 0`) sin avisar que era inválido.
+  - Por eso conviene validar el rango antes de llamar a cualquiera de las tres.
+- Parte d: Go no tiene una palabra clave `enum` como C o Java. Ahí un enum es un tipo propio del lenguaje; en Python existe la clase `Enum` de la librería estándar. En Go, un enumerativo es simplemente un `type` numérico + constantes armadas con `iota`.
