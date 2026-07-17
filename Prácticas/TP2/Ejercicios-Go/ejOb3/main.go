@@ -206,34 +206,33 @@ func main() {
 
 	fmt.Println("Slice original:")
 	// con []nodo le indicamos que imprima en formao crudo del slice [{a b}..]
-	fmt.Println([]nodo(o))
-	fmt.Println()
+	fmt.Println(o)
+	
 
 	// al inicio
 	r1 := Insert(o, 9, 0)
 	fmt.Println("Insert(9,0) -> Esperado: [{9 1} {3 3} {1 2} {5 3}]")
-	fmt.Println([]nodo(r1))
-	fmt.Println()
+	fmt.Println(r1)
+	
 
 	// en medio, rompiendo un bloque
 	r2 := Insert(o, 9, 1)
 	fmt.Println("Insert(9,1) -> Esperado: [{3 1} {9 1} {3 2} {1 2} {5 3}]")
-	fmt.Println([]nodo(r2))
-	fmt.Println()
-
+	fmt.Println(r2)
+	
 	// fusiona con bloque existente (mismo valor)
 	r3 := Insert(o, 3, 3)
 	fmt.Println("Insert(3,3) -> Esperado: [{3 4} {1 2} {5 3}]")
-	fmt.Println([]nodo(r3))
-	fmt.Println()
+	fmt.Println(r3)
+	
 
 	// fusiona con el bloque de la derecha
 	o2 := New([]int{3, 3, 3, 1, 1, 3, 3})
 	fmt.Println("Segundo arreglo:")
-	fmt.Println([]nodo(o2))
-	fmt.Println()
+	fmt.Println(o2)
+	
 
 	r4 := Insert(o2, 3, 5)
 	fmt.Println("Insert(3,5) -> Esperado: [{3 3} {1 2} {3 3}]")
-	fmt.Println([]nodo(r4))
+	fmt.Println(r4)
 }

@@ -6,11 +6,10 @@ import (
 	"os"
 	"runtime"
 	"sync"
-	"time"
 )
 
 const numDatos = 20
-const numWorkers = 4
+const numTrabajadores = 4
 
 type Dato struct {
 	numero    int
@@ -37,70 +36,85 @@ func invertirDigitos(n int) int {
 	return inv
 }
 
-func escribirArchivo(nombre, texto string) {
+// el mutex evita que dos trabajadores escriban al mismo archivo a la vez
+func escribirArchivo(f *os.File, texto string) {
 	fileMu.Lock()
 	defer fileMu.Unlock()
-	f, err := os.OpenFile(nombre, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Println("error escribiendo archivo:", err)
-		return
-	}
-	defer f.Close()
 	f.WriteString(texto)
 }
 
-// worker procesa datos según su prioridad hasta que el canal se cierre
-func worker(id int, ch <-chan Dato, acum *int, mu *sync.Mutex, wg *sync.WaitGroup) {
+// procesa datos según su prioridad hasta que el canal se cierre.
+// archP0 y archP1 ya vienen abiertos desde main (una sola vez para todo
+// el programa, antes se abrían y cerraban en cada tarea -> corrección profes)
+//
+// ch es "<-chan Dato": el "<-" antes de chan significa "solo lectura"
+func trabajador(id int, ch <-chan Dato, acum *int, mu *sync.Mutex, wg *sync.WaitGroup, archP0, archP1 *os.File) {
 	defer wg.Done()
 	for d := range ch {
 		switch d.prioridad {
 		case 0:
 			res := sumarDigitos(d.numero)
-			escribirArchivo("prioridad0.txt", fmt.Sprintf("(0, %d)\n", res))
-			fmt.Printf("worker %d: P0 %d -> suma dígitos %d\n", id, d.numero, res)
+			escribirArchivo(archP0, fmt.Sprintf("(0, %d)\n", res))
+			fmt.Printf("trabajador %d: P0 %d -> suma dígitos %d\n", id, d.numero, res)
 		case 1:
 			res := invertirDigitos(d.numero)
-			escribirArchivo("prioridad1.txt", fmt.Sprintf("(1, %d)\n", res))
-			fmt.Printf("worker %d: P1 %d -> invertido %d\n", id, d.numero, res)
+			escribirArchivo(archP1, fmt.Sprintf("(1, %d)\n", res))
+			fmt.Printf("trabajador %d: P1 %d -> invertido %d\n", id, d.numero, res)
 		case 2:
-			fmt.Printf("worker %d: P2 %d x 10 = %d\n", id, d.numero, d.numero*10)
+			fmt.Printf("trabajador %d: P2 %d x 10 = %d\n", id, d.numero, d.numero*10)
 		case 3:
 			mu.Lock()
 			*acum += d.numero
-			fmt.Printf("worker %d: P3 %d -> acumulado = %d\n", id, d.numero, *acum)
+			fmt.Printf("trabajador %d: P3 %d -> acumulado = %d\n", id, d.numero, *acum)
 			mu.Unlock()
 		}
 	}
 }
 
-// revisa siempre primero la cola de mayor prioridad disponible
-func scheduler(colas [4]chan Dato, workers chan<- Dato, total int) {
+// revisa siempre primero la cola de mayor prioridad: empieza por la 0,
+// y solo si está vacía pasa a la 1, después la 2, la 3.
+//
+// colas es un array de tamaño fijo [4]chan Dato (no un slice), uno por cada
+// prioridad. trabajadores es "chan<- Dato": el "<-" después de chan
+// significa "solo escritura" (al revés que en trabajador()).
+func planificador(colas [4]chan Dato, trabajadores chan<- Dato, total int) {
 	despachados := 0
 	for despachados < total {
 		enviado := false
 		for p := 0; p < 4; p++ {
 			select {
 			case d := <-colas[p]:
-				workers <- d
+				trabajadores <- d
 				despachados++
 				enviado = true
-			default:
+			default: // sin esto, el select se quedaría esperando algo en colas[p]
 			}
 			if enviado {
-				break
+				break // vuelve a arrancar desde p=0
 			}
 		}
 		if !enviado {
-			runtime.Gosched()
+			runtime.Gosched() // nada listo en ninguna cola: cede el turno en vez de reintentar sin parar
 		}
 	}
-	close(workers)
+	close(trabajadores) // avisa a los trabajadores que no va a llegar nada más
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-	os.Remove("prioridad0.txt")
-	os.Remove("prioridad1.txt")
+	// se abren una sola vez para todo el programa, no por cada dato procesado
+	archP0, err := os.Create("prioridad0.txt")
+	if err != nil {
+		fmt.Println("error abriendo prioridad0.txt:", err)
+		os.Exit(1)
+	}
+	defer archP0.Close()
+
+	archP1, err := os.Create("prioridad1.txt")
+	if err != nil {
+		fmt.Println("error abriendo prioridad1.txt:", err)
+		os.Exit(1)
+	}
+	defer archP1.Close()
 
 	var colas [4]chan Dato
 	for i := range colas {
@@ -112,17 +126,17 @@ func main() {
 		colas[d.prioridad] <- d
 	}
 
-	workers := make(chan Dato, numWorkers)
+	trabajadores := make(chan Dato, numTrabajadores)
 	var acumulado int
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	for id := 0; id < numWorkers; id++ {
+	for id := 0; id < numTrabajadores; id++ {
 		wg.Add(1)
-		go worker(id, workers, &acumulado, &mu, &wg)
+		go trabajador(id, trabajadores, &acumulado, &mu, &wg, archP0, archP1)
 	}
 
-	scheduler(colas, workers, numDatos)
+	planificador(colas, trabajadores, numDatos)
 
 	wg.Wait()
 	fmt.Println("\nProcesamiento terminado. Acumulado final (prioridad 3):", acumulado)

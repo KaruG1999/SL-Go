@@ -10,8 +10,9 @@ import (
 	"time"
 )
 
+// numero mayor que 1 con 2 dividores, el mismo y 1
 func esPrimo(n int) bool {
-	if n < 2 {
+	if n < 2 { 
 		return false
 	}
 	for i := 2; i*i <= n; i++ {
@@ -33,54 +34,66 @@ func primosSecuencial(N int) []int {
 	return primos
 }
 
-// b) múltiples goroutines, cada una procesa un rango
+// tamaño de cada lote que se reparte por el canal de tareas (prueba)
+const tamLote = 1000
+
+type lote struct{ inicio, fin int }
+
+// b) en vez de darle a cada goroutine un rango fijo de antemano, se arma un
+// canal con muchos lotes chicos (como una pila de tareas en el medio de la
+// mesa) y cada goroutine saca el siguiente lote apenas termina el anterior.
+
 func primosParalelo(N int, numGoroutines int) []int {
 	if numGoroutines < 1 {
 		numGoroutines = 1
 	}
-	ch := make(chan []int, numGoroutines)
+
+	tareas := make(chan lote, numGoroutines)
+	resultados := make(chan []int, numGoroutines)
 	var wg sync.WaitGroup
 
-	tamRango := N / numGoroutines
-	if tamRango < 1 {
-		tamRango = 1
+	for w := 0; w < numGoroutines; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for l := range tareas {
+				var parciales []int
+				for n := l.inicio; n <= l.fin; n++ {
+					if esPrimo(n) {
+						parciales = append(parciales, n)
+					}
+				}
+				resultados <- parciales
+			}
+		}()
 	}
 
-	for i := 0; i < numGoroutines; i++ {
-		inicio := i*tamRango + 1
-		if inicio > N {
-			break
-		}
-		fin := inicio + tamRango - 1
-		if i == numGoroutines-1 || fin > N {
-			fin = N
-		}
-		wg.Add(1)
-		go func(inicio, fin int) {
-			defer wg.Done()
-			var parciales []int
-			for n := inicio; n <= fin; n++ {
-				if esPrimo(n) {
-					parciales = append(parciales, n)
-				}
+	// productor de tareas: parte [2, N] en lotes chicos y los va mandando
+	go func() {
+		for inicio := 2; inicio <= N; inicio += tamLote {
+			fin := inicio + tamLote - 1
+			if fin > N {
+				fin = N
 			}
-			ch <- parciales
-		}(inicio, fin)
-	}
+			tareas <- lote{inicio, fin}
+		}
+		close(tareas)
+	}()
 
 	go func() {
 		wg.Wait()
-		close(ch)
+		close(resultados)
 	}()
 
 	var todos []int
-	for parcial := range ch {
+	for parcial := range resultados {
 		todos = append(todos, parcial...)
 	}
 	sort.Ints(todos)
 	return todos
 }
 
+// c) mide cuánto tarda la versión secuencial vs la paralela para el mismo N
 func medirSpeedup(N int) {
 	p := runtime.NumCPU()
 
@@ -98,6 +111,7 @@ func medirSpeedup(N int) {
 }
 
 func main() {
+	// Verificar que ingresa argumento
 	if len(os.Args) > 1 {
 		N, err := strconv.Atoi(os.Args[1])
 		if err != nil || N < 0 {
